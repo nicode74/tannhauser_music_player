@@ -1,0 +1,77 @@
+#ifndef TANNHAUSER_AUDIO_ENGINE_H
+#define TANNHAUSER_AUDIO_ENGINE_H
+
+#include <string>
+#include <memory>
+#include <atomic>
+#include <thread>
+#include <functional>
+#include "audio_decoder.h"
+#include "usb_driver.h"
+#include "ring_buffer.h"
+
+namespace tannhauser {
+
+enum class PlaybackState {
+    STOPPED,
+    PLAYING,
+    PAUSED
+};
+
+struct PlaybackInfo {
+    PlaybackState state = PlaybackState::STOPPED;
+    int64_t currentPositionMs = 0;
+    int64_t totalDurationMs = 0;
+    AudioFormat format;
+};
+
+using PositionCallback = std::function<void(int64_t currentMs, int64_t totalMs)>;
+using StateCallback = std::function<void(PlaybackState state)>;
+
+class AudioEngine {
+public:
+    static AudioEngine& getInstance();
+
+    bool setUsbFileDescriptor(int fd);
+    bool loadFile(const std::string& filePath);
+    bool play();
+    bool pause();
+    bool resume();
+    bool stop();
+    bool seek(int64_t positionMs);
+
+    PlaybackState getState() const { return state_.load(); }
+    PlaybackInfo getPlaybackInfo() const;
+
+    void setPositionCallback(PositionCallback cb) { positionCallback_ = cb; }
+    void setStateCallback(StateCallback cb) { stateCallback_ = cb; }
+
+private:
+    AudioEngine();
+    ~AudioEngine();
+    AudioEngine(const AudioEngine&) = delete;
+    AudioEngine& operator=(const AudioEngine&) = delete;
+
+    void decodeWorkerLoop();
+
+    std::atomic<PlaybackState> state_;
+    std::atomic<bool> isRunning_;
+    std::atomic<int64_t> currentPositionMs_;
+    std::atomic<int64_t> totalDurationMs_;
+
+    std::string currentFilePath_;
+    
+    std::unique_ptr<AudioDecoder> decoder_;
+    std::unique_ptr<UsbDriver> usbDriver_;
+    std::shared_ptr<RingBuffer> ringBuffer_;
+
+    std::thread decodeThread_;
+    mutable std::mutex engineMutex_;
+
+    PositionCallback positionCallback_;
+    StateCallback stateCallback_;
+};
+
+} // namespace tannhauser
+
+#endif // TANNHAUSER_AUDIO_ENGINE_H
