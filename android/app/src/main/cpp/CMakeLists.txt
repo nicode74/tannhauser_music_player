@@ -4,9 +4,10 @@ project(tannhauser_audio_engine C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Direktori include lokal
+# Direktori include lokal dan library pihak ketiga (libusb & FFmpeg)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/libusb
     ${CMAKE_CURRENT_SOURCE_DIR}/engine
     ${CMAKE_CURRENT_SOURCE_DIR}/jni
 )
@@ -17,6 +18,7 @@ set(SOURCE_FILES
     engine/audio_engine.cpp
     engine/audio_decoder.cpp
     engine/usb_driver.cpp
+    engine/peq_engine.cpp
 )
 
 # Target shared library

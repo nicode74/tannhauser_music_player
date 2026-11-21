@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.tannhauser_music_player"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "26.3.11579264"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -28,7 +28,19 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a"))
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
+        externalNativeBuild {
+            cmake {
+                abiFilters.addAll(listOf("arm64-v8a"))
+            }
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/cpp/libs")
         }
     }
 
@@ -55,4 +67,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.media:media:1.7.0")
+    implementation("androidx.core:core-ktx:1.12.0")
 }

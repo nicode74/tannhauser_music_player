@@ -9,6 +9,7 @@
 #include "audio_decoder.h"
 #include "usb_driver.h"
 #include "ring_buffer.h"
+#include "peq_engine.h"
 
 namespace tannhauser {
 
@@ -40,6 +41,13 @@ public:
     bool stop();
     bool seek(int64_t positionMs);
 
+    // 64-Bit Parametric EQ Control
+    void setPeqEnabled(bool enabled);
+    bool isPeqEnabled() const;
+    void setPeqPreamp(double preampDb);
+    void updatePeqBand(int index, int type, double fc, double gainDb, double q, bool enabled);
+    void resetPeqStates();
+
     PlaybackState getState() const { return state_.load(); }
     PlaybackInfo getPlaybackInfo() const;
 
@@ -64,9 +72,10 @@ private:
     std::unique_ptr<AudioDecoder> decoder_;
     std::unique_ptr<UsbDriver> usbDriver_;
     std::shared_ptr<RingBuffer> ringBuffer_;
+    PeqEngine peqEngine_;
 
     std::thread decodeThread_;
-    mutable std::mutex engineMutex_;
+    mutable std::recursive_mutex engineMutex_;
 
     PositionCallback positionCallback_;
     StateCallback stateCallback_;

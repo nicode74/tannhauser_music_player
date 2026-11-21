@@ -2,6 +2,17 @@ package com.example.tannhauser_music_player.bridge
 
 object NativeAudioBridge {
     init {
+        // Urutan pemuatan library untuk mencegah UnsatisfiedLinkError:
+        // 1. libusb1.0.so (independen dari FFmpeg)
+        System.loadLibrary("usb1.0")
+
+        // 2. FFmpeg libraries (urutan dependensi: libavutil -> libswresample -> libavcodec -> libavformat)
+        System.loadLibrary("avutil")
+        System.loadLibrary("swresample")
+        System.loadLibrary("avcodec")
+        System.loadLibrary("avformat")
+
+        // 3. Engine C++ utama (tergantung pada libusb dan modul FFmpeg di atas)
         System.loadLibrary("native-audio-engine")
     }
 
@@ -18,4 +29,10 @@ object NativeAudioBridge {
     external fun nativeGetBitDepth(): Int
     external fun nativeGetDuration(): Long
     external fun nativeGetPosition(): Long
+
+    // 64-Bit Parametric EQ NDK Methods
+    external fun nativeSetPeqEnabled(enabled: Boolean): Boolean
+    external fun nativeSetPeqPreamp(preampDb: Double): Boolean
+    external fun nativeUpdatePeqBand(index: Int, type: Int, fc: Double, gainDb: Double, q: Double, enabled: Boolean): Boolean
+    external fun nativeResetPeqStates(): Boolean
 }

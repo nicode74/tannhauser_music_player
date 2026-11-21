@@ -7,6 +7,44 @@ enum PlaybackState {
   paused,
 }
 
+class AudioTrack {
+  final String path;
+  final String title;
+  final String artist;
+  final String album;
+  final int durationMs;
+
+  AudioTrack({
+    required this.path,
+    required this.title,
+    required this.artist,
+    required this.album,
+    required this.durationMs,
+  });
+
+  factory AudioTrack.fromMap(Map<dynamic, dynamic> map) {
+    return AudioTrack(
+      path: map['path'] as String? ?? '',
+      title: map['title'] as String? ?? 'Unknown Title',
+      artist: map['artist'] as String? ?? 'Unknown Artist',
+      album: map['album'] as String? ?? 'Unknown Album',
+      durationMs: (map['duration'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  String get folderPath {
+    final lastSlash = path.lastIndexOf('/');
+    return lastSlash != -1 ? path.substring(0, lastSlash) : '';
+  }
+
+  String get folderName {
+    final cleanPath = folderPath;
+    if (cleanPath.isEmpty) return 'Unknown';
+    final lastSlash = cleanPath.lastIndexOf('/');
+    return lastSlash != -1 ? cleanPath.substring(lastSlash + 1) : cleanPath;
+  }
+}
+
 class PlaybackInfo {
   final PlaybackState state;
   final int sampleRate;
@@ -56,6 +94,7 @@ class NativeAudioService {
       EventChannel('com.example.tannhauser_music_player/usb_events');
 
   static final NativeAudioService instance = NativeAudioService._internal();
+  factory NativeAudioService() => instance;
   NativeAudioService._internal();
 
   Stream<Map<String, dynamic>>? _usbStream;
@@ -67,6 +106,40 @@ class NativeAudioService {
     return _usbStream!;
   }
 
+  Future<bool> checkPermissions() async {
+    try {
+      final bool? granted =
+          await _commandChannel.invokeMethod<bool>('checkPermissions');
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> requestPermissions() async {
+    try {
+      final bool? granted =
+          await _commandChannel.invokeMethod<bool>('requestPermissions');
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<AudioTrack>> scanAudioFiles() async {
+    try {
+      final List<dynamic>? list =
+          await _commandChannel.invokeMethod<List<dynamic>>('scanAudioFiles');
+      if (list != null) {
+        return list
+            .map((item) =>
+                AudioTrack.fromMap(Map<dynamic, dynamic>.from(item as Map)))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   Future<bool> scanUsb() async {
     try {
       final bool? result = await _commandChannel.invokeMethod<bool>('scanUsb');
@@ -76,10 +149,12 @@ class NativeAudioService {
     }
   }
 
-  Future<bool> loadFile(String filePath) async {
+  Future<bool> loadFile(String filePath, {String? title, String? artist}) async {
     try {
       final bool? result = await _commandChannel.invokeMethod<bool>('loadFile', {
         'filePath': filePath,
+        if (title != null) 'title': title,
+        if (artist != null) 'artist': artist,
       });
       return result ?? false;
     } catch (_) {
@@ -136,11 +211,67 @@ class NativeAudioService {
 
   Future<PlaybackInfo?> getPlaybackInfo() async {
     try {
-      final map = await _commandChannel.invokeMethod<Map<dynamic, dynamic>>('getPlaybackInfo');
+      final map = await _commandChannel
+          .invokeMethod<Map<dynamic, dynamic>>('getPlaybackInfo');
       if (map != null) {
         return PlaybackInfo.fromMap(map);
       }
     } catch (_) {}
     return null;
+  }
+
+  // 64-Bit Parametric EQ NDK Commands
+  Future<bool> setPeqEnabled(bool enabled) async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('setPeqEnabled', {
+        'enabled': enabled,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> setPeqPreamp(double preampDb) async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('setPeqPreamp', {
+        'preampDb': preampDb,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updatePeqBand({
+    required int index,
+    required int type,
+    required double fc,
+    required double gainDb,
+    required double q,
+    required bool enabled,
+  }) async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('updatePeqBand', {
+        'index': index,
+        'type': type,
+        'fc': fc,
+        'gainDb': gainDb,
+        'q': q,
+        'enabled': enabled,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> resetPeqStates() async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('resetPeqStates');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 }

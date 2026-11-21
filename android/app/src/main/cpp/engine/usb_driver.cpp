@@ -1,10 +1,17 @@
 #include "usb_driver.h"
-#include <android/log.h>
 #include <chrono>
 
+#if __has_include(<android/log.h>)
+#include <android/log.h>
 #define LOG_TAG "Tannhauser_UsbDriver"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#else
+#include <cstdio>
+#define LOG_TAG "Tannhauser_UsbDriver"
+#define LOGI(...) printf(__VA_ARGS__)
+#define LOGE(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #if __has_include(<libusb/libusb.h>)
 #include <libusb/libusb.h>
@@ -77,30 +84,33 @@ bool UsbDriver::init() {
 
 bool UsbDriver::configureAudioStreaming(const AudioFormat& format) {
     currentFormat_ = format;
-    LOGI("Configuring USB Audio Class 2.0 streaming: Rate=%d Hz, Channels=%d, Bits=%d",
+    LOGI("UsbDriver::configureAudioStreaming - START: Rate=%d Hz, Channels=%d, Bits=%d",
          format.sampleRate, format.channels, format.bitDepth);
 
 #if HAS_LIBUSB_HEADER
-    if (!deviceHandle_) {
-        LOGE("Cannot configure streaming: Device handle is null");
+    if (!connected_ || !deviceHandle_) {
+        LOGI("UsbDriver::configureAudioStreaming - DAC not connected or deviceHandle is null. Skipping UAC2 claim (non-blocking).");
         return false;
     }
 
     // Klaim interface audio streaming UAC2
     int res = libusb_claim_interface(deviceHandle_, audioInterfaceNumber_);
     if (res < 0) {
-        LOGE("Failed to claim audio interface %d: %s", audioInterfaceNumber_, libusb_strerror((libusb_error)res));
+        LOGE("UsbDriver::configureAudioStreaming - Failed to claim audio interface %d: %s",
+             audioInterfaceNumber_, libusb_strerror((libusb_error)res));
         return false;
     }
 
     // Set Alternate Setting untuk mengaktifkan isochronous audio endpoint
     res = libusb_set_interface_alt_setting(deviceHandle_, audioInterfaceNumber_, audioAltSetting_);
     if (res < 0) {
-        LOGE("Failed to set alternate setting %d: %s", audioAltSetting_, libusb_strerror((libusb_error)res));
+        LOGE("UsbDriver::configureAudioStreaming - Failed to set alternate setting %d: %s",
+             audioAltSetting_, libusb_strerror((libusb_error)res));
         return false;
     }
 #endif
 
+    LOGI("UsbDriver::configureAudioStreaming - END: Configured successfully.");
     return true;
 }
 

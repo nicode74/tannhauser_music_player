@@ -33,46 +33,62 @@ AudioDecoder::~AudioDecoder() {
 }
 
 bool AudioDecoder::open(const std::string& filePath) {
-    LOGI("Opening audio file: %s", filePath.c_str());
+    LOGI("AudioDecoder::open - START: %s", filePath.c_str());
     close();
 
-#if HAS_FFMPEG_HEADERS
-    if (avformat_open_input(&formatContext_, filePath.c_str(), nullptr, nullptr) < 0) {
-        LOGE("Failed to open audio file: %s", filePath.c_str());
+    if (filePath.empty()) {
+        LOGE("AudioDecoder::open - File path is empty!");
         return false;
     }
 
-    if (avformat_find_stream_info(formatContext_, nullptr) < 0) {
-        LOGE("Failed to retrieve input stream info.");
+#if HAS_FFMPEG_HEADERS
+    int ret = avformat_open_input(&formatContext_, filePath.c_str(), nullptr, nullptr);
+    if (ret < 0) {
+        char errBuf[128];
+        av_strerror(ret, errBuf, sizeof(errBuf));
+        LOGE("AudioDecoder::open - avformat_open_input failed (%d: %s): %s", ret, errBuf, filePath.c_str());
         close();
+        LOGI("AudioDecoder::open - END (FAILED)");
+        return false;
+    }
+
+    ret = avformat_find_stream_info(formatContext_, nullptr);
+    if (ret < 0) {
+        LOGE("AudioDecoder::open - avformat_find_stream_info failed.");
+        close();
+        LOGI("AudioDecoder::open - END (FAILED)");
         return false;
     }
 
     const AVCodec* decoder = nullptr;
     audioStreamIndex_ = av_find_best_stream(formatContext_, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
     if (audioStreamIndex_ < 0 || !decoder) {
-        LOGE("No suitable audio decoder found in stream.");
+        LOGE("AudioDecoder::open - No suitable audio decoder found in stream.");
         close();
+        LOGI("AudioDecoder::open - END (FAILED)");
         return false;
     }
 
     AVStream* stream = formatContext_->streams[audioStreamIndex_];
     codecContext_ = avcodec_alloc_context3(decoder);
     if (!codecContext_) {
-        LOGE("Failed to allocate codec context.");
+        LOGE("AudioDecoder::open - Failed to allocate codec context.");
         close();
+        LOGI("AudioDecoder::open - END (FAILED)");
         return false;
     }
 
     if (avcodec_parameters_to_context(codecContext_, stream->codecpar) < 0) {
-        LOGE("Failed to copy codec parameters to context.");
+        LOGE("AudioDecoder::open - Failed to copy codec parameters to context.");
         close();
+        LOGI("AudioDecoder::open - END (FAILED)");
         return false;
     }
 
     if (avcodec_open2(codecContext_, decoder, nullptr) < 0) {
-        LOGE("Failed to open audio codec.");
+        LOGE("AudioDecoder::open - Failed to open audio codec.");
         close();
+        LOGI("AudioDecoder::open - END (FAILED)");
         return false;
     }
 
@@ -88,17 +104,19 @@ bool AudioDecoder::open(const std::string& filePath) {
         durationMs_ = formatContext_->duration / (AV_TIME_BASE / 1000);
     }
 
-    LOGI("Audio file opened successfully: %d Hz, %d channels, %d bits, duration %lld ms",
+    LOGI("AudioDecoder::open - SUCCESS: %d Hz, %d channels, %d bits, duration %lld ms",
          format_.sampleRate, format_.channels, format_.bitDepth, (long long)durationMs_);
     isOpen_ = true;
+    LOGI("AudioDecoder::open - END (SUCCESS)");
     return true;
 #else
-    LOGI("FFmpeg headers not yet present during compilation. Mocking file open.");
+    LOGI("AudioDecoder::open - FFmpeg headers not yet present during compilation. Mocking file open.");
     isOpen_ = true;
     format_.sampleRate = 44100;
     format_.channels = 2;
     format_.bitDepth = 16;
     durationMs_ = 180000;
+    LOGI("AudioDecoder::open - END (MOCK)");
     return true;
 #endif
 }

@@ -1,0 +1,9 @@
+CompileFlags:
+  Add:
+    - --target=aarch64-linux-android29
+    - --sysroot=/home/zawolf/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+    - -std=c++17
+    - -I/run/media/zawolf/DATA/GitHub/tannhauser/tannhauser_music_player/android/app/src/main/cpp/include
+    - -I/run/media/zawolf/DATA/GitHub/tannhauser/tannhauser_music_player/android/app/src/main/cpp/include/libusb
+    - -I/run/media/zawolf/DATA/GitHub/tannhauser/tannhauser_music_player/android/app/src/main/cpp/engine
+    - -I/run/media/zawolf/DATA/GitHub/tannhauser/tannhauser_music_player/android/app/src/main/cpp/jni
