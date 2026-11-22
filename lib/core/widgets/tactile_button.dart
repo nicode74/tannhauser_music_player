@@ -24,7 +24,7 @@ class TactileButton extends StatelessWidget {
     this.ledColor,
     this.width,
     this.height = 48.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
   });
 
   @override
@@ -54,7 +54,7 @@ class TactileButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Top LED indicator dot (4x3px)
+              // Top LED indicator dot (6x3px)
               Container(
                 width: 6,
                 height: 3,
@@ -72,9 +72,33 @@ class TactileButton extends StatelessWidget {
                       : null,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               if (child != null)
                 child!
+              else if (icon != null && label != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 16,
+                      color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        label!,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
               else if (icon != null)
                 Icon(
                   icon,
@@ -84,6 +108,7 @@ class TactileButton extends StatelessWidget {
               else if (label != null)
                 Text(
                   label!,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

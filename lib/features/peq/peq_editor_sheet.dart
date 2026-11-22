@@ -23,10 +23,14 @@ class PeqEditorSheet extends StatefulWidget {
       context: context,
       backgroundColor: AppColors.surface,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusPanel)),
       ),
-      builder: (_) => PeqEditorSheet(peqState: peqState),
+      builder: (_) => SafeArea(
+        top: false,
+        child: PeqEditorSheet(peqState: peqState),
+      ),
     );
   }
 
@@ -118,34 +122,29 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.tune, color: AppColors.evaPurple, size: 18),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            '64-BIT PARAMETRIC EQ',
-                            style: AppTypography.header.copyWith(fontSize: 14),
-                          ),
-                        ],
+                      const Icon(Icons.tune, color: AppColors.evaPurple, size: 18),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'PARAMETRIC EQ',
+                          style: AppTypography.header.copyWith(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      Row(
-                        children: [
-                          StatusPill(
-                            label: _state.isEnabled ? '[ DSP 64-BIT ]' : '[ BIT-PERFECT BYPASS ]',
-                            type: _state.isEnabled ? StatusPillType.dspActive : StatusPillType.bitPerfect,
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Switch(
-                            value: _state.isEnabled,
-                            activeColor: AppColors.acidGreen,
-                            activeTrackColor: AppColors.acidGreenDim,
-                            inactiveThumbColor: AppColors.textMuted,
-                            inactiveTrackColor: AppColors.surfaceInset,
-                            onChanged: (val) => _state.setEnabled(val),
-                          ),
-                        ],
+                      const SizedBox(width: AppSpacing.sm),
+                      StatusPill(
+                        label: _state.isEnabled ? 'DSP ON' : 'BYPASS',
+                        type: _state.isEnabled ? StatusPillType.dspActive : StatusPillType.bitPerfect,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Switch(
+                        value: _state.isEnabled,
+                        activeColor: AppColors.acidGreen,
+                        activeTrackColor: AppColors.acidGreenDim,
+                        inactiveThumbColor: AppColors.textMuted,
+                        inactiveTrackColor: AppColors.surfaceInset,
+                        onChanged: (val) => _state.setEnabled(val),
                       ),
                     ],
                   ),

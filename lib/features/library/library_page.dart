@@ -131,9 +131,10 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
                   indicatorWeight: 2.5,
                   labelColor: AppColors.evaPurple,
                   unselectedLabelColor: AppColors.textSecondary,
-                  labelStyle: AppTypography.statusPill,
+                  labelStyle: AppTypography.statusPill.copyWith(fontSize: 10),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                   tabs: [
-                    Tab(text: 'ALL TRACKS (${allTracks.length})'),
+                    Tab(text: 'TRACKS (${allTracks.length})'),
                     Tab(text: 'FOLDERS (${folders.length})'),
                     Tab(text: 'ALBUMS (${albums.length})'),
                   ],

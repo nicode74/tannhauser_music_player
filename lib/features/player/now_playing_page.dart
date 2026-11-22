@@ -12,7 +12,9 @@ import '../peq/peq_editor_sheet.dart';
 import '../system/system_console_sheet.dart';
 import 'controllers/player_state.dart';
 import 'queue_sheet.dart';
+import 'widgets/audio_inspector_sheet.dart';
 import 'widgets/disc_seek_wheel.dart';
+import 'widgets/sleep_timer_sheet.dart';
 
 /// Full-Screen Playback Console: NowPlayingPage (Lean 3+3 Step 3)
 class NowPlayingPage extends StatefulWidget {
@@ -86,6 +88,31 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
             title: const Text('NOW PLAYING // UNIT-01'),
             actions: [
               IconButton(
+                icon: Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Icon(
+                      Icons.snooze,
+                      size: 20,
+                      color: _playerState.isSleepTimerActive ? AppColors.acidGreen : AppColors.textPrimary,
+                    ),
+                    if (_playerState.isSleepTimerActive)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.acidGreen,
+                        ),
+                      ),
+                  ],
+                ),
+                tooltip: _playerState.isSleepTimerActive
+                    ? 'Sleep Timer: ${_playerState.sleepTimeFormatted}'
+                    : 'Atur Sleep Timer',
+                onPressed: () => SleepTimerSheet.show(context, _playerState),
+              ),
+              IconButton(
                 icon: const Icon(Icons.settings_input_component, size: 20),
                 tooltip: 'Konsol Sistem & Hardware DAC',
                 onPressed: _handleOpenSystemConsole,
@@ -103,7 +130,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                   const SizedBox(height: AppSpacing.md),
 
                   // 2. Audio Spec Badge & Sync Pill
-                  _buildSpecRow(sampleRate, bitDepth, isUsbConnected),
+                  _buildSpecRow(sampleRate, bitDepth, isUsbConnected, track),
                   const SizedBox(height: AppSpacing.md),
 
                   // 3. Track Info Block with vertical accent
@@ -132,6 +159,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
                   // 6. Tactile Transport Deck
                   _buildTransportDeck(isPlaying),
+                  const SizedBox(height: AppSpacing.xl),
                 ],
               ),
             ),
@@ -188,27 +216,39 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
     );
   }
 
-  Widget _buildSpecRow(int sampleRate, int bitDepth, bool isUsbConnected) {
+  Widget _buildSpecRow(int sampleRate, int bitDepth, bool isUsbConnected, dynamic track) {
     return ListenableBuilder(
       listenable: _peqState,
       builder: (context, _) {
         final isPeqActive = _peqState.isEnabled;
+        final codec = track != null ? (track.extension as String) : 'FLAC';
+
         return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            AudioSpecBadge(
-              codec: 'FLAC',
-              sampleRate: sampleRate,
-              bitDepth: bitDepth,
-              isDspActive: isPeqActive,
+            Expanded(
+              flex: 5,
+              child: InkWell(
+                borderRadius: AppSpacing.borderBadge,
+                onTap: () => AudioInspectorSheet.show(context, _playerState, peqState: _peqState),
+                child: AudioSpecBadge(
+                  codec: codec,
+                  sampleRate: sampleRate,
+                  bitDepth: bitDepth,
+                  isDspActive: isPeqActive,
+                ),
+              ),
             ),
-            StatusPill(
-              label: !isUsbConnected
-                  ? '[ STDBY ]'
-                  : (isPeqActive ? '[ 01 / SYNC: DSP 64-BIT ]' : '[ 01 / SYNC: BIT-PERFECT ]'),
-              type: !isUsbConnected
-                  ? StatusPillType.standby
-                  : (isPeqActive ? StatusPillType.dspActive : StatusPillType.bitPerfect),
+            const SizedBox(width: AppSpacing.sm),
+            Flexible(
+              flex: 4,
+              child: StatusPill(
+                label: !isUsbConnected
+                    ? '[ STDBY ]'
+                    : (isPeqActive ? '[ DSP 64-BIT ]' : '[ BIT-PERFECT ]'),
+                type: !isUsbConnected
+                    ? StatusPillType.standby
+                    : (isPeqActive ? StatusPillType.dspActive : StatusPillType.bitPerfect),
+              ),
             ),
           ],
         );
@@ -263,23 +303,29 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.tune,
-                        size: 14,
-                        color: isPeqActive ? AppColors.acidGreen : AppColors.evaPurple,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        '64-BIT PARAMETRIC EQ (PEQ)',
-                        style: AppTypography.telemetrySmall.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.tune,
+                          size: 14,
+                          color: isPeqActive ? AppColors.acidGreen : AppColors.evaPurple,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Text(
+                            '64-BIT PARAMETRIC EQ',
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.telemetrySmall.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -334,45 +380,62 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
   Widget _buildTransportDeck(bool isPlaying) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        TactileButton(
-          icon: Icons.skip_previous,
-          width: 50,
-          height: 48,
-          onPressed: _playerState.previous,
+        Expanded(
+          child: TactileButton(
+            icon: Icons.skip_previous,
+            height: 48,
+            padding: EdgeInsets.zero,
+            onPressed: _playerState.previous,
+          ),
         ),
-        TactileButton(
-          icon: Icons.stop,
-          width: 50,
-          height: 48,
-          onPressed: _playerState.stop,
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: TactileButton(
+            icon: Icons.stop,
+            height: 48,
+            padding: EdgeInsets.zero,
+            onPressed: _playerState.stop,
+          ),
         ),
-        TactileButton(
-          icon: isPlaying ? Icons.pause : Icons.play_arrow,
-          width: 68,
-          height: 52,
-          isActive: isPlaying,
-          ledColor: AppColors.acidGreen,
-          onPressed: _playerState.togglePlayPause,
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          flex: 2,
+          child: TactileButton(
+            icon: isPlaying ? Icons.pause : Icons.play_arrow,
+            height: 52,
+            isActive: isPlaying,
+            ledColor: AppColors.acidGreen,
+            padding: EdgeInsets.zero,
+            onPressed: _playerState.togglePlayPause,
+          ),
         ),
-        TactileButton(
-          icon: Icons.skip_next,
-          width: 50,
-          height: 48,
-          onPressed: _playerState.next,
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: TactileButton(
+            icon: Icons.skip_next,
+            height: 48,
+            padding: EdgeInsets.zero,
+            onPressed: _playerState.next,
+          ),
         ),
-        TactileButton(
-          icon: Icons.queue_music,
-          width: 50,
-          height: 48,
-          onPressed: _handleOpenQueue,
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: TactileButton(
+            icon: Icons.queue_music,
+            height: 48,
+            padding: EdgeInsets.zero,
+            onPressed: _handleOpenQueue,
+          ),
         ),
-        TactileButton(
-          icon: Icons.tune,
-          width: 50,
-          height: 48,
-          onPressed: _handleOpenPeq,
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: TactileButton(
+            icon: Icons.tune,
+            height: 48,
+            padding: EdgeInsets.zero,
+            onPressed: _handleOpenPeq,
+          ),
         ),
       ],
     );

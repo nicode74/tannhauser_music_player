@@ -21,10 +21,14 @@ class QueueSheet extends StatelessWidget {
       context: context,
       backgroundColor: AppColors.surface,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusPanel)),
       ),
-      builder: (_) => QueueSheet(playerState: playerState),
+      builder: (_) => SafeArea(
+        top: false,
+        child: QueueSheet(playerState: playerState),
+      ),
     );
   }
 
@@ -72,21 +76,20 @@ class QueueSheet extends StatelessWidget {
                     vertical: AppSpacing.sm,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.queue_music, color: AppColors.evaPurple, size: 18),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            'UP NEXT // QUEUE (${queue.length})',
-                            style: AppTypography.header.copyWith(fontSize: 14),
-                          ),
-                        ],
+                      const Icon(Icons.queue_music, color: AppColors.evaPurple, size: 18),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'QUEUE (${queue.length})',
+                          style: AppTypography.header.copyWith(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
 
-                      // Actions: Shuffle & Repeat
+                      // Actions: Shuffle, Repeat, Clear
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: Icon(
@@ -94,6 +97,7 @@ class QueueSheet extends StatelessWidget {
                               color: playerState.isShuffle ? AppColors.evaPurple : AppColors.textSecondary,
                               size: 20,
                             ),
+                            visualDensity: VisualDensity.compact,
                             tooltip: 'Acak Antrean',
                             onPressed: playerState.toggleShuffle,
                           ),
@@ -105,11 +109,13 @@ class QueueSheet extends StatelessWidget {
                                   : AppColors.textSecondary,
                               size: 20,
                             ),
+                            visualDensity: VisualDensity.compact,
                             tooltip: 'Mode Ulang',
                             onPressed: playerState.toggleRepeatMode,
                           ),
                           IconButton(
                             icon: const Icon(Icons.clear_all, color: AppColors.textSecondary, size: 20),
+                            visualDensity: VisualDensity.compact,
                             tooltip: 'Kosongkan Antrean',
                             onPressed: queue.isNotEmpty ? playerState.clearQueue : null,
                           ),

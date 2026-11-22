@@ -385,7 +385,8 @@ class MainActivity : FlutterActivity() {
                         "title" to title,
                         "artist" to if (artist == "<unknown>") "Unknown Artist" else artist,
                         "album" to if (album == "<unknown>") "Unknown Album" else album,
-                        "duration" to duration
+                        "duration" to duration,
+                        "size" to file.length()
                     )
                 )
             }

@@ -3,6 +3,7 @@ import 'core/theme/app_theme.dart';
 import 'features/library/library_page.dart';
 import 'features/player/controllers/player_state.dart';
 import 'features/player/now_playing_page.dart';
+import 'features/splash/eva_splash_screen.dart';
 
 void main() {
   runApp(const TannhauserApp());
@@ -17,6 +18,7 @@ class TannhauserApp extends StatefulWidget {
 
 class _TannhauserAppState extends State<TannhauserApp> {
   late final PlayerState _playerState;
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -36,30 +38,34 @@ class _TannhauserAppState extends State<TannhauserApp> {
       title: 'Tannhäuser Audio Terminal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: Builder(
-        builder: (ctx) {
-          return LibraryPage(
-            playerState: _playerState,
-            onOpenNowPlaying: () {
-              Navigator.of(ctx).push(
-                MaterialPageRoute(
-                  builder: (_) => NowPlayingPage(
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 350),
+        child: _showSplash
+            ? EvaSplashScreen(
+                key: const ValueKey('splash_screen'),
+                onComplete: () {
+                  setState(() {
+                    _showSplash = false;
+                  });
+                },
+              )
+            : Builder(
+                key: const ValueKey('library_screen'),
+                builder: (ctx) {
+                  return LibraryPage(
                     playerState: _playerState,
-                    onOpenPeq: () {
-                      // Wired in Step 4: PeqEditorSheet
+                    onOpenNowPlaying: () {
+                      Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => NowPlayingPage(
+                            playerState: _playerState,
+                          ),
+                        ),
+                      );
                     },
-                    onOpenQueue: () {
-                      // Wired in Step 5: QueueSheet
-                    },
-                    onOpenSystemConsole: () {
-                      // Wired in Step 6: SystemConsoleSheet
-                    },
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                  );
+                },
+              ),
       ),
     );
   }

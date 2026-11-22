@@ -26,6 +26,11 @@ class PlayerState extends ChangeNotifier {
   Timer? _pollingTimer;
   StreamSubscription? _usbSubscription;
 
+  // Sleep Timer
+  Timer? _sleepTimer;
+  int _sleepTimeRemainingSeconds = 0;
+  bool _sleepAtTrackEnd = false;
+
   // Getters
   List<AudioTrack> get tracks => _tracks;
   List<AudioTrack> get queue => _queue;
@@ -38,6 +43,49 @@ class PlayerState extends ChangeNotifier {
   bool get isScanning => _isScanning;
   bool get isLoadingFile => _isLoadingFile;
   bool get isPlaying => _playbackInfo?.state == PlaybackState.playing;
+
+  bool get isSleepTimerActive => _sleepTimer != null || _sleepAtTrackEnd;
+  int get sleepTimeRemainingSeconds => _sleepTimeRemainingSeconds;
+  bool get sleepAtTrackEnd => _sleepAtTrackEnd;
+
+  String get sleepTimeFormatted {
+    if (_sleepAtTrackEnd) return 'AKHIR TREK';
+    final m = _sleepTimeRemainingSeconds ~/ 60;
+    final s = _sleepTimeRemainingSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  void setSleepTimer(int minutes) {
+    cancelSleepTimer();
+    if (minutes <= 0) return;
+    _sleepTimeRemainingSeconds = minutes * 60;
+    _sleepAtTrackEnd = false;
+
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_sleepTimeRemainingSeconds > 0) {
+        _sleepTimeRemainingSeconds--;
+        notifyListeners();
+      } else {
+        cancelSleepTimer();
+        pause();
+      }
+    });
+    notifyListeners();
+  }
+
+  void setSleepAtTrackEnd(bool enabled) {
+    cancelSleepTimer();
+    _sleepAtTrackEnd = enabled;
+    notifyListeners();
+  }
+
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepTimeRemainingSeconds = 0;
+    _sleepAtTrackEnd = false;
+    notifyListeners();
+  }
 
   void setQueue(List<AudioTrack> newTracks, {int startIndex = 0}) {
     _originalQueue = List.from(newTracks);
@@ -252,6 +300,11 @@ class PlayerState extends ChangeNotifier {
   Future<void> scanUsb() => _audioService.scanUsb();
 
   void next() {
+    if (_sleepAtTrackEnd) {
+      cancelSleepTimer();
+      pause();
+      return;
+    }
     final activeList = _queue.isNotEmpty ? _queue : _tracks;
     if (activeList.isEmpty || _selectedTrack == null) return;
     if (_repeatMode == PlaybackRepeatMode.one) {
@@ -288,6 +341,7 @@ class PlayerState extends ChangeNotifier {
   void dispose() {
     _pollingTimer?.cancel();
     _usbSubscription?.cancel();
+    _sleepTimer?.cancel();
     super.dispose();
   }
 }

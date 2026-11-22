@@ -57,10 +57,13 @@ class AudioSpecBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: AppTypography.telemetrySmall.copyWith(
-              color: AppColors.textPrimary,
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.telemetrySmall.copyWith(
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],

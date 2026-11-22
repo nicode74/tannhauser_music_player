@@ -35,7 +35,14 @@ class TrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ext = _extensionFromPath(track.path);
+    final ext = track.extension;
+    final isLossless = track.isLossless;
+    final isDsd = track.isDsd;
+    final badgeColor = isSelected
+        ? AppColors.evaPurple
+        : (isDsd
+            ? AppColors.acidGreen
+            : (isLossless ? AppColors.evaPurple : AppColors.textSecondary));
 
     return InkWell(
       onTap: onTap,
@@ -60,40 +67,87 @@ class TrackTile extends StatelessWidget {
           children: [
             // Track extension badge / artwork
             Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: AppColors.surfaceInset,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: isSelected ? AppColors.evaPurple : AppColors.border,
+                  color: isSelected ? AppColors.evaPurple : badgeColor.withOpacity(0.5),
                   width: 1.0,
                 ),
               ),
-              child: Center(
-                child: Text(
-                  ext,
-                  style: AppTypography.telemetrySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? AppColors.evaPurple : AppColors.textSecondary,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    ext,
+                    style: AppTypography.telemetrySmall.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? AppColors.evaPurple : badgeColor,
+                    ),
                   ),
-                ),
+                  if (isLossless || isDsd) ...[
+                    const SizedBox(height: 1),
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDsd ? AppColors.acidGreen : AppColors.evaPurple,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(width: AppSpacing.md),
 
-            // Title & Artist
+            // Title & Artist with Audiophile Quality Tag
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.trackTitle.copyWith(
-                      color: isSelected ? AppColors.evaPurple : AppColors.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      if (isDsd || isLossless) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: isDsd
+                                ? AppColors.acidGreen.withOpacity(0.15)
+                                : AppColors.evaPurple.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: isDsd
+                                  ? AppColors.acidGreen.withOpacity(0.6)
+                                  : AppColors.evaPurple.withOpacity(0.6),
+                              width: 0.6,
+                            ),
+                          ),
+                          child: Text(
+                            isDsd ? 'DSD' : 'LOSSLESS',
+                            style: AppTypography.telemetrySmall.copyWith(
+                              fontSize: 8,
+                              color: isDsd ? AppColors.acidGreen : AppColors.evaPurple,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                      Expanded(
+                        child: Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.trackTitle.copyWith(
+                            color: isSelected ? AppColors.evaPurple : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -107,12 +161,29 @@ class TrackTile extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
 
-            // Duration
-            Text(
-              _formatDuration(track.durationMs),
-              style: AppTypography.telemetrySmall.copyWith(
-                color: isSelected ? AppColors.textPrimary : AppColors.textMuted,
-              ),
+            // Duration & File Size
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatDuration(track.durationMs),
+                  style: AppTypography.telemetrySmall.copyWith(
+                    color: isSelected ? AppColors.textPrimary : AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (track.formattedSize.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    track.formattedSize,
+                    style: AppTypography.telemetrySmall.copyWith(
+                      fontSize: 8.5,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),

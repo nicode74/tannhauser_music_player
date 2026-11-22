@@ -13,6 +13,7 @@ class AudioTrack {
   final String artist;
   final String album;
   final int durationMs;
+  final int sizeBytes;
 
   AudioTrack({
     required this.path,
@@ -20,6 +21,7 @@ class AudioTrack {
     required this.artist,
     required this.album,
     required this.durationMs,
+    this.sizeBytes = 0,
   });
 
   factory AudioTrack.fromMap(Map<dynamic, dynamic> map) {
@@ -29,6 +31,7 @@ class AudioTrack {
       artist: map['artist'] as String? ?? 'Unknown Artist',
       album: map['album'] as String? ?? 'Unknown Album',
       durationMs: (map['duration'] as num?)?.toInt() ?? 0,
+      sizeBytes: (map['size'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -42,6 +45,31 @@ class AudioTrack {
     if (cleanPath.isEmpty) return 'Unknown';
     final lastSlash = cleanPath.lastIndexOf('/');
     return lastSlash != -1 ? cleanPath.substring(lastSlash + 1) : cleanPath;
+  }
+
+  String get extension {
+    final dot = path.lastIndexOf('.');
+    return dot != -1 && dot + 1 < path.length ? path.substring(dot + 1).toUpperCase() : 'PCM';
+  }
+
+  bool get isLossless {
+    final ext = extension.toUpperCase();
+    return ext == 'FLAC' || ext == 'WAV' || ext == 'ALAC' || ext == 'AIFF';
+  }
+
+  bool get isDsd {
+    final ext = extension.toUpperCase();
+    return ext == 'DSF' || ext == 'DFF' || ext == 'ISO';
+  }
+
+  String get formattedSize {
+    if (sizeBytes <= 0) return '';
+    final mb = sizeBytes / (1024 * 1024);
+    if (mb >= 1000) {
+      final gb = mb / 1024;
+      return '${gb.toStringAsFixed(2)} GB';
+    }
+    return '${mb.toStringAsFixed(1)} MB';
   }
 }
 

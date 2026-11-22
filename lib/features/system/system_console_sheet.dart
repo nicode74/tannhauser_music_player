@@ -6,6 +6,7 @@ import '../../core/widgets/hardware_panel.dart';
 import '../../core/widgets/status_pill.dart';
 import '../../core/widgets/tactile_button.dart';
 import '../player/controllers/player_state.dart';
+import '../player/widgets/sleep_timer_sheet.dart';
 
 /// Hardware Diagnostics & Audio Engine Console Modal Sheet (Lean 3+3 Step 6)
 class SystemConsoleSheet extends StatefulWidget {
@@ -21,10 +22,14 @@ class SystemConsoleSheet extends StatefulWidget {
       context: context,
       backgroundColor: AppColors.surface,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusPanel)),
       ),
-      builder: (_) => SystemConsoleSheet(playerState: playerState),
+      builder: (_) => SafeArea(
+        top: false,
+        child: SystemConsoleSheet(playerState: playerState),
+      ),
     );
   }
 
@@ -73,20 +78,19 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                     vertical: AppSpacing.sm,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.settings_input_component, color: AppColors.evaPurple, size: 18),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            'SYSTEM CONSOLE // DIAGNOSTICS',
-                            style: AppTypography.header.copyWith(fontSize: 13),
-                          ),
-                        ],
+                      const Icon(Icons.settings_input_component, color: AppColors.evaPurple, size: 18),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'SYSTEM CONSOLE',
+                          style: AppTypography.header.copyWith(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      const SizedBox(width: AppSpacing.sm),
                       StatusPill(
-                        label: isUsb ? 'USB DAC: ACTIVE' : 'NO DAC',
+                        label: isUsb ? 'DAC ACTIVE' : 'NO DAC',
                         type: isUsb ? StatusPillType.bitPerfect : StatusPillType.noDac,
                       ),
                     ],
@@ -172,6 +176,20 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                   ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TactileButton(
+                              height: 42,
+                              icon: Icons.snooze,
+                              label: _state.isSleepTimerActive
+                                  ? 'SLEEP TIMER: ${_state.sleepTimeFormatted}'
+                                  : 'ATUR SLEEP TIMER',
+                              isActive: _state.isSleepTimerActive,
+                              ledColor: AppColors.acidGreen,
+                              onPressed: () {
+                                Navigator.pop(context);
+                                SleepTimerSheet.show(context, _state);
+                              },
                             ),
                           ],
                         ),
