@@ -62,6 +62,14 @@ abstract class AppTypography {
     color: AppColors.textSecondary,
   );
 
+  static const TextStyle codeSnippet = TextStyle(
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.3,
+    color: AppColors.textPrimary,
+  );
+
   static const TextStyle statusPill = TextStyle(
     fontFamily: 'monospace',
     fontSize: 11,

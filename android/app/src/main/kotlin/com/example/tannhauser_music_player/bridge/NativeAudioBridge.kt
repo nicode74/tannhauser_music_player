@@ -17,6 +17,7 @@ object NativeAudioBridge {
     }
 
     external fun nativeSetUsbFileDescriptor(fd: Int): Boolean
+    external fun nativeResetUsbDevice(): Boolean
     external fun nativeLoadFile(filePath: String): Boolean
     external fun nativePlay(): Boolean
     external fun nativePause(): Boolean
@@ -35,4 +36,7 @@ object NativeAudioBridge {
     external fun nativeSetPeqPreamp(preampDb: Double): Boolean
     external fun nativeUpdatePeqBand(index: Int, type: Int, fc: Double, gainDb: Double, q: Double, enabled: Boolean): Boolean
     external fun nativeResetPeqStates(): Boolean
+
+    // Fast Header Prober (FFmpeg without CodecContext allocation)
+    external fun nativeProbeAudioFile(filePath: String): Map<String, Any>?
 }

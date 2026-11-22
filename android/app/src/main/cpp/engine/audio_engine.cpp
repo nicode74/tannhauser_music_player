@@ -22,7 +22,8 @@ AudioEngine &AudioEngine::getInstance() {
 
 AudioEngine::AudioEngine()
     : state_(PlaybackState::STOPPED), isRunning_(false), currentPositionMs_(0),
-      totalDurationMs_(0), decoder_(std::make_unique<AudioDecoder>()),
+      seekBasePositionMs_(0), totalDurationMs_(0),
+      decoder_(std::make_unique<AudioDecoder>()),
       usbDriver_(std::make_unique<UsbDriver>()),
       ringBuffer_(std::make_shared<RingBuffer>(2 * 1024 * 1024)) {
 } // 2 MB buffer
@@ -35,6 +36,16 @@ bool AudioEngine::setUsbFileDescriptor(int fd) {
   bool res = usbDriver_->setFileDescriptor(fd);
   LOGI("AudioEngine::setUsbFileDescriptor - END: result=%d", res ? 1 : 0);
   return res;
+}
+
+void AudioEngine::resetUsbDevice() {
+  LOGI("AudioEngine::resetUsbDevice - START");
+  std::lock_guard<std::recursive_mutex> lock(engineMutex_);
+  if (state_ == PlaybackState::PLAYING) {
+    pause();
+  }
+  usbDriver_->close();
+  LOGI("AudioEngine::resetUsbDevice - END: Closed USB driver cleanly");
 }
 
 bool AudioEngine::play() {
@@ -56,10 +67,10 @@ bool AudioEngine::play() {
   isRunning_ = true;
   state_ = PlaybackState::PLAYING;
 
-  // Start direct USB streaming worker
+  // Mulai transmisi streaming USB bit-perfect
   usbDriver_->startStreaming(ringBuffer_);
 
-  // Start background decoding thread
+  // Mulai thread decoding FFmpeg latar belakang
   if (decodeThread_.joinable()) {
     if (decodeThread_.get_id() != std::this_thread::get_id()) {
       decodeThread_.join();
@@ -83,6 +94,10 @@ bool AudioEngine::pause() {
   }
 
   state_ = PlaybackState::PAUSED;
+  // Simpan posisi saat pause
+  seekBasePositionMs_ = currentPositionMs_.load();
+  usbDriver_->resetBytesTransferred();
+
   if (stateCallback_) {
     stateCallback_(PlaybackState::PAUSED);
   }
@@ -99,6 +114,8 @@ bool AudioEngine::resume() {
   }
 
   state_ = PlaybackState::PLAYING;
+  usbDriver_->resetBytesTransferred();
+
   if (stateCallback_) {
     stateCallback_(PlaybackState::PLAYING);
   }
@@ -126,32 +143,30 @@ bool AudioEngine::loadFile(const std::string &filePath) {
     currentFilePath_.clear();
     totalDurationMs_ = 0;
     currentPositionMs_ = 0;
+    seekBasePositionMs_ = 0;
     LOGI("AudioEngine::loadFile - END (FAILED)");
     return false;
   }
 
   totalDurationMs_ = decoder_->getDurationMs();
   currentPositionMs_ = 0;
+  seekBasePositionMs_ = 0;
+  usbDriver_->resetBytesTransferred();
 
-  // Sinkronisasi sample rate file audio ke PEQ Engine untuk rekalkulasi
-  // koefisien biquad
+  // Sinkronisasi sample rate file audio ke PEQ Engine untuk rekalkulasi koefisien biquad
   const AudioFormat &format = decoder_->getFormat();
   peqEngine_.setSampleRate(format.sampleRate);
 
-  // Konfigurasi DAC dengan format asli file audio jika DAC sudah terhubung.
-  // Hindari blocking libusb jika DAC belum dicolok.
+  // Konfigurasi DAC dengan format asli file audio jika DAC sudah terhubung
   if (usbDriver_->isConnected()) {
     usbDriver_->configureAudioStreaming(format);
-    LOGI("AudioEngine::loadFile - USB DAC configured for bit-perfect %d Hz / "
-         "%d bit.",
+    LOGI("AudioEngine::loadFile - USB DAC configured for bit-perfect %d Hz / %d bit.",
          format.sampleRate, format.bitDepth);
   } else {
-    LOGI("AudioEngine::loadFile - USB DAC not connected yet. Skipping USB "
-         "configuration until DAC is plugged in.");
+    LOGI("AudioEngine::loadFile - USB DAC not connected yet. Will configure upon attachment.");
   }
 
-  LOGI("AudioEngine::loadFile - SUCCESS: %d Hz, %d channels, %d bits, duration "
-       "%lld ms",
+  LOGI("AudioEngine::loadFile - SUCCESS: %d Hz, %d channels, %d bits, duration %lld ms",
        format.sampleRate, format.channels, format.bitDepth,
        (long long)totalDurationMs_);
   LOGI("AudioEngine::loadFile - END (SUCCESS)");
@@ -184,6 +199,8 @@ bool AudioEngine::stop() {
     std::lock_guard<std::recursive_mutex> lock(engineMutex_);
     ringBuffer_->clear();
     currentPositionMs_ = 0;
+    seekBasePositionMs_ = 0;
+    usbDriver_->resetBytesTransferred();
 
     if (stateCallback_) {
       stateCallback_(PlaybackState::STOPPED);
@@ -198,11 +215,32 @@ bool AudioEngine::seek(int64_t positionMs) {
   LOGI("AudioEngine::seek - START: %lld ms", (long long)positionMs);
   std::lock_guard<std::recursive_mutex> lock(engineMutex_);
 
+  bool wasPlaying = (state_ == PlaybackState::PLAYING);
+  if (wasPlaying) {
+    usbDriver_->stopStreaming();
+  }
+
   ringBuffer_->clear();
   bool success = decoder_->seek(positionMs);
   if (success) {
+    seekBasePositionMs_ = positionMs;
+    usbDriver_->resetBytesTransferred();
     currentPositionMs_ = positionMs;
   }
+
+  // Jika sedang memutar, hidupkan kembali decodeThread dan mulai streaming dari posisi baru
+  if (wasPlaying && success) {
+    if (decodeThread_.joinable()) {
+      if (decodeThread_.get_id() != std::this_thread::get_id()) {
+        decodeThread_.join();
+      }
+    }
+    isRunning_ = true;
+    state_ = PlaybackState::PLAYING;
+    usbDriver_->startStreaming(ringBuffer_);
+    decodeThread_ = std::thread(&AudioEngine::decodeWorkerLoop, this);
+  }
+
   LOGI("AudioEngine::seek - END: result=%d", success ? 1 : 0);
   return success;
 }
@@ -211,11 +249,31 @@ PlaybackInfo AudioEngine::getPlaybackInfo() const {
   std::lock_guard<std::recursive_mutex> lock(engineMutex_);
   PlaybackInfo info;
   info.state = state_.load();
-  info.currentPositionMs = currentPositionMs_.load();
   info.totalDurationMs = totalDurationMs_.load();
   if (decoder_->isOpen()) {
     info.format = decoder_->getFormat();
   }
+
+  // Kalkulasi realtime posisi berbasis akumulasi byte PCM yang terkirim ke hardware
+  if (state_ == PlaybackState::PLAYING && usbDriver_->isStreaming()) {
+    const AudioFormat &fmt = info.format;
+    int bytesPerSample = (fmt.bitDepth > 0 ? fmt.bitDepth : 16) / 8;
+    int channels = fmt.channels > 0 ? fmt.channels : 2;
+    int sampleRate = fmt.sampleRate > 0 ? fmt.sampleRate : 44100;
+    int bytesPerSec = sampleRate * channels * bytesPerSample;
+
+    if (bytesPerSec > 0) {
+      uint64_t transferred = usbDriver_->getBytesTransferred();
+      int64_t elapsedMs = (transferred * 1000) / bytesPerSec;
+      int64_t computed = seekBasePositionMs_.load() + elapsedMs;
+      if (totalDurationMs_ > 0 && computed > totalDurationMs_) {
+        computed = totalDurationMs_.load();
+      }
+      currentPositionMs_ = computed;
+    }
+  }
+
+  info.currentPositionMs = currentPositionMs_.load();
   return info;
 }
 
@@ -231,6 +289,16 @@ void AudioEngine::decodeWorkerLoop() {
 
     if (!decoder_->decodeNextFrame(pcmFrame)) {
       LOGI("AudioEngine: End of stream reached or decoding stopped.");
+      // Tunggu hingga sisa data di buffer habis dikonsumsi oleh DAC
+      while (isRunning_ && state_ == PlaybackState::PLAYING && ringBuffer_->availableRead() > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+      }
+      if (isRunning_ && state_ == PlaybackState::PLAYING) {
+        state_ = PlaybackState::STOPPED;
+        if (stateCallback_) {
+          stateCallback_(PlaybackState::STOPPED);
+        }
+      }
       break;
     }
 

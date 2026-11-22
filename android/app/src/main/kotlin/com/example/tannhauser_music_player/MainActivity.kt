@@ -9,6 +9,7 @@ import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.tannhauser_music_player.bridge.NativeAudioBridge
+import com.example.tannhauser_music_player.scanner.FileScanner
 import com.example.tannhauser_music_player.service.AudioPlaybackService
 import com.example.tannhauser_music_player.usb.UsbBridge
 import io.flutter.embedding.android.FlutterActivity
@@ -24,11 +25,14 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "Tannhauser_MainActivity"
         private const val COMMAND_CHANNEL = "com.example.tannhauser_music_player/audio"
         private const val USB_EVENT_CHANNEL = "com.example.tannhauser_music_player/usb_events"
+        private const val SCAN_EVENT_CHANNEL = "com.example.tannhauser_music_player/scan_progress"
         private const val PERMISSION_REQUEST_CODE = 1001
     }
 
     private var usbBridge: UsbBridge? = null
     private var usbEventSink: EventChannel.EventSink? = null
+    private var scanEventSink: EventChannel.EventSink? = null
+    private var fileScanner: FileScanner? = null
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var currentTrackTitle: String = "Tannhäuser Audio"
@@ -66,9 +70,103 @@ class MainActivity : FlutterActivity() {
             }
         )
 
+        // EventChannel for Filesystem Scan Progress Telemetry
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SCAN_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    scanEventSink = events
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    scanEventSink = null
+                }
+            }
+        )
+
         // MethodChannel for Playback & Control Commands (All JNI calls dispatched to background thread)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMMAND_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getAppDocumentsPath" -> {
+                    result.success(applicationContext.filesDir.absolutePath)
+                }
+                "checkAllFilesPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        result.success(android.os.Environment.isExternalStorageManager())
+                    } else {
+                        result.success(hasAudioPermission())
+                    }
+                }
+                "requestAllFilesPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        if (android.os.Environment.isExternalStorageManager()) {
+                            result.success(true)
+                        } else {
+                            try {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                                intent.data = android.net.Uri.parse("package:$packageName")
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                startActivity(intent)
+                                result.success(true)
+                            }
+                        }
+                    } else {
+                        if (hasAudioPermission()) {
+                            result.success(true)
+                        } else {
+                            pendingPermissionResult = result
+                            ActivityCompat.requestPermissions(
+                                this,
+                                getRequiredAudioPermissions(),
+                                PERMISSION_REQUEST_CODE
+                            )
+                        }
+                    }
+                }
+                "startStorageScan" -> {
+                    val customPaths = call.argument<List<String>>("customPaths")
+                    val minDurationMs = (call.argument<Number>("minDurationMs") ?: 30000L).toLong()
+                    val minSizeBytes = (call.argument<Number>("minSizeBytes") ?: (512L * 1024L)).toLong()
+                    val excludedList = call.argument<List<String>>("excludedFolders") ?: emptyList()
+                    val excludedSet = excludedList.toSet()
+
+                    backgroundExecutor.execute {
+                        try {
+                            val scanner = FileScanner()
+                            fileScanner = scanner
+                            val tracks = scanner.scan(
+                                customPaths = customPaths,
+                                minDurationMs = minDurationMs,
+                                minSizeBytes = minSizeBytes,
+                                excludedFolders = excludedSet
+                            ) { currentDir, scannedCount, isDone ->
+                                runOnUiThread {
+                                    scanEventSink?.success(
+                                        mapOf(
+                                            "currentDir" to currentDir,
+                                            "scannedCount" to scannedCount,
+                                            "isDone" to isDone
+                                        )
+                                    )
+                                }
+                            }
+                            runOnUiThread {
+                                result.success(tracks)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Storage scan error: ${e.message}", e)
+                            runOnUiThread {
+                                result.error("SCAN_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+                "stopStorageScan" -> {
+                    fileScanner?.cancel()
+                    result.success(true)
+                }
                 "checkPermissions" -> {
                     result.success(hasAudioPermission())
                 }

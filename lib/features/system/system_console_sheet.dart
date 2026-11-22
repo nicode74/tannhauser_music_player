@@ -7,6 +7,7 @@ import '../../core/widgets/status_pill.dart';
 import '../../core/widgets/tactile_button.dart';
 import '../player/controllers/player_state.dart';
 import '../player/widgets/sleep_timer_sheet.dart';
+import '../library/widgets/scan_terminal_sheet.dart';
 
 /// Hardware Diagnostics & Audio Engine Console Modal Sheet (Lean 3+3 Step 6)
 class SystemConsoleSheet extends StatefulWidget {
@@ -170,9 +171,13 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                 Expanded(
                                   child: TactileButton(
                                     height: 42,
-                                    icon: Icons.sync,
-                                    label: 'PINDAI MEDIASTORE',
-                                    onPressed: _state.isScanning ? null : _state.scanLocalMusic,
+                                    icon: Icons.radar,
+                                    label: 'PINDAI PENYIMPANAN',
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      ScanTerminalSheet.show(context, _state);
+                                      _state.scanStorage(rescan: true);
+                                    },
                                   ),
                                 ),
                               ],
@@ -196,7 +201,72 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 3. Debug & Fallback Settings
+                      // 3. Blacklist / Excluded Folders Panel
+                      HardwarePanel(
+                        padding: AppSpacing.edgeMd,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'FOLDER TERKECUALIKAN (${_state.excludedFolders.length})',
+                              style: AppTypography.telemetrySmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            if (_state.excludedFolders.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                                child: Text(
+                                  'Tidak ada folder yang dikeluarkan dari library. Tekan lama pada folder di tab FOLDERS untuk mengeluarkan folder yang tidak diinginkan.',
+                                  style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                                ),
+                              )
+                            else
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _state.excludedFolders.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final folder = _state.excludedFolders[idx];
+                                  final folderName = folder.split('/').last;
+
+                                  return ListTile(
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.folder_off, color: AppColors.hazardOrange, size: 20),
+                                    title: Text(
+                                      folderName,
+                                      style: AppTypography.trackTitle.copyWith(fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(
+                                      folder,
+                                      style: AppTypography.codeSnippet.copyWith(fontSize: 10, color: AppColors.textMuted),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        foregroundColor: AppColors.acidGreen,
+                                      ),
+                                      icon: const Icon(Icons.restore, size: 16),
+                                      label: const Text('PULIHKAN'),
+                                      onPressed: () {
+                                        _state.restoreFolder(folder);
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 4. Debug & Fallback Settings
                       HardwarePanel(
                         inset: true,
                         padding: AppSpacing.edgeMd,

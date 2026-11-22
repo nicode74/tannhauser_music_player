@@ -34,6 +34,7 @@ public:
     static AudioEngine& getInstance();
 
     bool setUsbFileDescriptor(int fd);
+    void resetUsbDevice();
     bool loadFile(const std::string& filePath);
     bool play();
     bool pause();
@@ -64,7 +65,8 @@ private:
 
     std::atomic<PlaybackState> state_;
     std::atomic<bool> isRunning_;
-    std::atomic<int64_t> currentPositionMs_;
+    mutable std::atomic<int64_t> currentPositionMs_;
+    std::atomic<int64_t> seekBasePositionMs_;
     std::atomic<int64_t> totalDurationMs_;
 
     std::string currentFilePath_;

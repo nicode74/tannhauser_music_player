@@ -14,6 +14,11 @@ class AudioTrack {
   final String album;
   final int durationMs;
   final int sizeBytes;
+  final int sampleRate;
+  final int bitDepth;
+  final int bitRate;
+  final int trackNumber;
+  final String codec;
 
   AudioTrack({
     required this.path,
@@ -22,6 +27,11 @@ class AudioTrack {
     required this.album,
     required this.durationMs,
     this.sizeBytes = 0,
+    this.sampleRate = 44100,
+    this.bitDepth = 16,
+    this.bitRate = 0,
+    this.trackNumber = 0,
+    this.codec = '',
   });
 
   factory AudioTrack.fromMap(Map<dynamic, dynamic> map) {
@@ -32,7 +42,28 @@ class AudioTrack {
       album: map['album'] as String? ?? 'Unknown Album',
       durationMs: (map['duration'] as num?)?.toInt() ?? 0,
       sizeBytes: (map['size'] as num?)?.toInt() ?? 0,
+      sampleRate: (map['sampleRate'] as num?)?.toInt() ?? 44100,
+      bitDepth: (map['bitDepth'] as num?)?.toInt() ?? 16,
+      bitRate: (map['bitRate'] as num?)?.toInt() ?? 0,
+      trackNumber: (map['trackNumber'] as num?)?.toInt() ?? 0,
+      codec: map['codec'] as String? ?? '',
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'path': path,
+      'title': title,
+      'artist': artist,
+      'album': album,
+      'duration': durationMs,
+      'size': sizeBytes,
+      'sampleRate': sampleRate,
+      'bitDepth': bitDepth,
+      'bitRate': bitRate,
+      'trackNumber': trackNumber,
+      'codec': codec,
+    };
   }
 
   String get folderPath {
@@ -120,18 +151,85 @@ class NativeAudioService {
       MethodChannel('com.example.tannhauser_music_player/audio');
   static const EventChannel _usbEventChannel =
       EventChannel('com.example.tannhauser_music_player/usb_events');
+  static const EventChannel _scanProgressChannel =
+      EventChannel('com.example.tannhauser_music_player/scan_progress');
 
   static final NativeAudioService instance = NativeAudioService._internal();
   factory NativeAudioService() => instance;
   NativeAudioService._internal();
 
   Stream<Map<String, dynamic>>? _usbStream;
+  Stream<Map<String, dynamic>>? _scanStream;
 
   Stream<Map<String, dynamic>> get usbEvents {
     _usbStream ??= _usbEventChannel
         .receiveBroadcastStream()
         .map((event) => Map<String, dynamic>.from(event as Map));
     return _usbStream!;
+  }
+
+  Stream<Map<String, dynamic>> get scanProgressEvents {
+    _scanStream ??= _scanProgressChannel
+        .receiveBroadcastStream()
+        .map((event) => Map<String, dynamic>.from(event as Map));
+    return _scanStream!;
+  }
+
+  Future<String?> getAppDocumentsPath() async {
+    try {
+      return await _commandChannel.invokeMethod<String>('getAppDocumentsPath');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> checkAllFilesPermission() async {
+    try {
+      final bool? granted = await _commandChannel.invokeMethod<bool>('checkAllFilesPermission');
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> requestAllFilesPermission() async {
+    try {
+      final bool? granted = await _commandChannel.invokeMethod<bool>('requestAllFilesPermission');
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<AudioTrack>> startStorageScan({
+    List<String>? customPaths,
+    int minDurationMs = 30000,
+    int minSizeBytes = 524288,
+    List<String>? excludedFolders,
+  }) async {
+    try {
+      final List<dynamic>? list = await _commandChannel.invokeMethod<List<dynamic>>('startStorageScan', {
+        if (customPaths != null) 'customPaths': customPaths,
+        'minDurationMs': minDurationMs,
+        'minSizeBytes': minSizeBytes,
+        if (excludedFolders != null) 'excludedFolders': excludedFolders,
+      });
+      if (list != null) {
+        return list
+            .map((item) => AudioTrack.fromMap(Map<dynamic, dynamic>.from(item as Map)))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<bool> stopStorageScan() async {
+    try {
+      final bool? res = await _commandChannel.invokeMethod<bool>('stopStorageScan');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> checkPermissions() async {

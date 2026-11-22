@@ -10,7 +10,9 @@ import '../../services/native_audio_service.dart';
 import '../player/controllers/player_state.dart';
 import '../system/system_console_sheet.dart';
 import 'collection_detail_page.dart';
+import 'widgets/folder_tree_view.dart';
 import 'widgets/mini_player_bar.dart';
+import 'widgets/scan_terminal_sheet.dart';
 
 /// Default Home Screen: LibraryPage
 /// Features instant search, 3 segmented tabs (ALL TRACKS, FOLDERS, ALBUMS),
@@ -91,6 +93,14 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
                 : const Text('TANNHÄUSER // UNIT-01'),
             actions: [
               IconButton(
+                icon: const Icon(Icons.radar, size: 20, color: AppColors.acidGreen),
+                tooltip: 'Pindai Penyimpanan',
+                onPressed: () {
+                  ScanTerminalSheet.show(context, widget.playerState);
+                  widget.playerState.scanStorage(rescan: true);
+                },
+              ),
+              IconButton(
                 icon: Icon(_isSearchOpen ? Icons.close : Icons.search, size: 20),
                 tooltip: _isSearchOpen ? 'Tutup Pencarian' : 'Cari Musik',
                 onPressed: () {
@@ -148,8 +158,12 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
               // 1. All Tracks
               _buildTracksList(allTracks),
 
-              // 2. Folders Grouping
-              _buildFoldersList(folders),
+              // 2. Hierarchical Folder Tree
+              FolderTreeView(
+                playerState: widget.playerState,
+                filteredTracks: _isSearchOpen && _searchQuery.isNotEmpty ? allTracks : null,
+                onTriggerRescan: () => ScanTerminalSheet.show(context, widget.playerState),
+              ),
 
               // 3. Albums Grouping
               _buildAlbumsList(albums),

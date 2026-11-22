@@ -23,10 +23,12 @@ abstract class AppSpacing {
   );
 
   // Radii
+  static const double radiusSm = 4.0;
   static const double radiusBadge = 6.0;
   static const double radiusButton = 8.0;
   static const double radiusPanel = 12.0;
 
+  static const BorderRadius borderSm = BorderRadius.all(Radius.circular(radiusSm));
   static const BorderRadius borderBadge = BorderRadius.all(Radius.circular(radiusBadge));
   static const BorderRadius borderButton = BorderRadius.all(Radius.circular(radiusButton));
   static const BorderRadius borderPanel = BorderRadius.all(Radius.circular(radiusPanel));

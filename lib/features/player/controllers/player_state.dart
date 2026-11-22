@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../services/native_audio_service.dart';
+import '../../library/services/library_cache_service.dart';
 
 enum PlaybackRepeatMode { off, all, one }
 
@@ -22,9 +23,13 @@ class PlayerState extends ChangeNotifier {
   String _usbDeviceName = 'No USB DAC Detected';
   bool _isScanning = false;
   bool _isLoadingFile = false;
+  String _scanCurrentDir = '';
+  int _scanCount = 0;
+  List<String> _excludedFolders = [];
 
   Timer? _pollingTimer;
   StreamSubscription? _usbSubscription;
+  StreamSubscription? _scanSubscription;
 
   // Sleep Timer
   Timer? _sleepTimer;
@@ -43,6 +48,9 @@ class PlayerState extends ChangeNotifier {
   bool get isScanning => _isScanning;
   bool get isLoadingFile => _isLoadingFile;
   bool get isPlaying => _playbackInfo?.state == PlaybackState.playing;
+  String get scanCurrentDir => _scanCurrentDir;
+  int get scanCount => _scanCount;
+  List<String> get excludedFolders => _excludedFolders;
 
   bool get isSleepTimerActive => _sleepTimer != null || _sleepAtTrackEnd;
   int get sleepTimeRemainingSeconds => _sleepTimeRemainingSeconds;
@@ -176,7 +184,24 @@ class PlayerState extends ChangeNotifier {
   void init() {
     _initUsbListener();
     _startPollingPlaybackInfo();
-    scanLocalMusic();
+    _hydrateCacheAndScan();
+  }
+
+  Future<void> _hydrateCacheAndScan() async {
+    final cache = await LibraryCacheService.loadCache();
+    if (cache != null && cache.tracks.isNotEmpty) {
+      _tracks = cache.tracks;
+      _excludedFolders = cache.excludedFolders;
+      _queue = List.from(_tracks);
+      _originalQueue = List.from(_tracks);
+      if (_selectedTrack == null && _tracks.isNotEmpty) {
+        _selectedTrack = _tracks.first;
+      }
+      notifyListeners();
+    } else {
+      // First boot or empty cache -> trigger initial scan
+      await scanStorage();
+    }
   }
 
   void _initUsbListener() {
@@ -201,6 +226,98 @@ class PlayerState extends ChangeNotifier {
     });
   }
 
+  Future<bool> scanStorage({bool rescan = false, List<String>? customPaths}) async {
+    if (_isScanning) return false;
+    _isScanning = true;
+    _scanCurrentDir = 'MEMERIKSA PENYIMPANAN...';
+    _scanCount = 0;
+    notifyListeners();
+
+    try {
+      final hasPerm = await _audioService.checkAllFilesPermission();
+      if (!hasPerm) {
+        await _audioService.requestAllFilesPermission();
+      }
+
+      _scanSubscription?.cancel();
+      _scanSubscription = _audioService.scanProgressEvents.listen((event) {
+        _scanCurrentDir = event['currentDir'] as String? ?? _scanCurrentDir;
+        _scanCount = (event['scannedCount'] as num?)?.toInt() ?? _scanCount;
+        notifyListeners();
+      });
+
+      final scanned = await _audioService.startStorageScan(
+        customPaths: customPaths,
+        excludedFolders: _excludedFolders,
+      );
+
+      if (scanned.isNotEmpty || rescan) {
+        _tracks = scanned;
+        if (_queue.isEmpty || rescan) {
+          _queue = List.from(scanned);
+          _originalQueue = List.from(scanned);
+        }
+        if (_selectedTrack == null && scanned.isNotEmpty) {
+          _selectedTrack = scanned.first;
+        }
+        await LibraryCacheService.saveCache(
+          tracks: _tracks,
+          excludedFolders: _excludedFolders,
+        );
+      } else if (scanned.isEmpty && _tracks.isEmpty) {
+        // Fallback to MediaStore if direct scan found 0 tracks (e.g. permission pending or empty folder)
+        await scanLocalMusic();
+      }
+      return true;
+    } catch (_) {
+      // Fallback to MediaStore if direct traversal fails
+      return await scanLocalMusic();
+    } finally {
+      _scanSubscription?.cancel();
+      _scanSubscription = null;
+      _isScanning = false;
+      notifyListeners();
+    }
+  }
+
+  void stopScan() {
+    _audioService.stopStorageScan();
+    _isScanning = false;
+    notifyListeners();
+  }
+
+  Future<void> excludeFolder(String folderPath) async {
+    final clean = folderPath.trim();
+    if (clean.isEmpty || _excludedFolders.contains(clean)) return;
+
+    _excludedFolders.add(clean);
+    // Instant cache & state purge without full storage rescan
+    _tracks = _tracks.where((t) => !t.path.startsWith(clean)).toList();
+    _queue = _queue.where((t) => !t.path.startsWith(clean)).toList();
+    _originalQueue = _originalQueue.where((t) => !t.path.startsWith(clean)).toList();
+
+    if (_selectedTrack != null && _selectedTrack!.path.startsWith(clean)) {
+      _selectedTrack = _tracks.isNotEmpty ? _tracks.first : null;
+    }
+
+    await LibraryCacheService.saveCache(
+      tracks: _tracks,
+      excludedFolders: _excludedFolders,
+    );
+    notifyListeners();
+  }
+
+  Future<void> restoreFolder(String folderPath) async {
+    if (!_excludedFolders.contains(folderPath)) return;
+    _excludedFolders.remove(folderPath);
+    await LibraryCacheService.saveCache(
+      tracks: _tracks,
+      excludedFolders: _excludedFolders,
+    );
+    notifyListeners();
+    await scanStorage(rescan: true);
+  }
+
   Future<bool> scanLocalMusic() async {
     if (_isScanning) return false;
     _isScanning = true;
@@ -223,6 +340,10 @@ class PlayerState extends ChangeNotifier {
       if (_selectedTrack == null && scannedTracks.isNotEmpty) {
         _selectedTrack = scannedTracks.first;
       }
+      await LibraryCacheService.saveCache(
+        tracks: _tracks,
+        excludedFolders: _excludedFolders,
+      );
       return true;
     } catch (_) {
       return false;
@@ -341,6 +462,7 @@ class PlayerState extends ChangeNotifier {
   void dispose() {
     _pollingTimer?.cancel();
     _usbSubscription?.cancel();
+    _scanSubscription?.cancel();
     _sleepTimer?.cancel();
     super.dispose();
   }

@@ -44,6 +44,7 @@ typedef struct _JNIEnv JNIEnv;
 #endif
 
 #include "../engine/audio_engine.h"
+#include "../engine/audio_decoder.h"
 
 using namespace tannhauser;
 
@@ -56,6 +57,14 @@ Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeSetUsb
     bool res = AudioEngine::getInstance().setUsbFileDescriptor(fd);
     LOGI("JNI: nativeSetUsbFileDescriptor - END: result=%d", res ? 1 : 0);
     return res ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeResetUsbDevice(
+        JNIEnv* /* env */, jobject /* this */) {
+    LOGI("JNI: nativeResetUsbDevice");
+    AudioEngine::getInstance().resetUsbDevice();
+    return JNI_TRUE;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -199,6 +208,89 @@ Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeResetP
     LOGI("JNI: nativeResetPeqStates");
     AudioEngine::getInstance().resetPeqStates();
     return JNI_TRUE;
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeProbeAudioFile(
+        JNIEnv* env, jobject /* this */, jstring filePath) {
+    if (!filePath) return nullptr;
+#if __has_include(<jni.h>)
+    const char* nativePath = env->GetStringUTFChars(filePath, nullptr);
+    if (!nativePath) return nullptr;
+
+    AudioProbeResult probe = AudioDecoder::probeAudioFile(nativePath);
+    env->ReleaseStringUTFChars(filePath, nativePath);
+
+    if (!probe.success) return nullptr;
+
+    jclass mapClass = env->FindClass("java/util/HashMap");
+    if (!mapClass) return nullptr;
+    jmethodID mapInit = env->GetMethodID(mapClass, "<init>", "()V");
+    jmethodID mapPut = env->GetMethodID(mapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    if (!mapInit || !mapPut) {
+        env->DeleteLocalRef(mapClass);
+        return nullptr;
+    }
+    jobject hashMap = env->NewObject(mapClass, mapInit);
+    if (!hashMap) {
+        env->DeleteLocalRef(mapClass);
+        return nullptr;
+    }
+
+    auto putString = [&](const char* key, const std::string& val) {
+        jstring jKey = env->NewStringUTF(key);
+        jstring jVal = env->NewStringUTF(val.c_str());
+        env->CallObjectMethod(hashMap, mapPut, jKey, jVal);
+        env->DeleteLocalRef(jKey);
+        env->DeleteLocalRef(jVal);
+    };
+
+    auto putInt = [&](const char* key, int val) {
+        jclass intClass = env->FindClass("java/lang/Integer");
+        if (intClass) {
+            jmethodID intValueOf = env->GetStaticMethodID(intClass, "valueOf", "(I)Ljava/lang/Integer;");
+            if (intValueOf) {
+                jobject jVal = env->CallStaticObjectMethod(intClass, intValueOf, val);
+                jstring jKey = env->NewStringUTF(key);
+                env->CallObjectMethod(hashMap, mapPut, jKey, jVal);
+                env->DeleteLocalRef(jKey);
+                env->DeleteLocalRef(jVal);
+            }
+            env->DeleteLocalRef(intClass);
+        }
+    };
+
+    auto putLong = [&](const char* key, int64_t val) {
+        jclass longClass = env->FindClass("java/lang/Long");
+        if (longClass) {
+            jmethodID longValueOf = env->GetStaticMethodID(longClass, "valueOf", "(J)Ljava/lang/Long;");
+            if (longValueOf) {
+                jobject jVal = env->CallStaticObjectMethod(longClass, longValueOf, static_cast<jlong>(val));
+                jstring jKey = env->NewStringUTF(key);
+                env->CallObjectMethod(hashMap, mapPut, jKey, jVal);
+                env->DeleteLocalRef(jKey);
+                env->DeleteLocalRef(jVal);
+            }
+            env->DeleteLocalRef(longClass);
+        }
+    };
+
+    putString("title", probe.title);
+    putString("artist", probe.artist);
+    putString("album", probe.album);
+    putInt("trackNumber", probe.trackNumber);
+    putInt("sampleRate", probe.sampleRate);
+    putInt("channels", probe.channels);
+    putInt("bitDepth", probe.bitDepth);
+    putLong("bitRate", probe.bitRate);
+    putLong("durationMs", probe.durationMs);
+    putString("codec", probe.codecName);
+
+    env->DeleteLocalRef(mapClass);
+    return hashMap;
+#else
+    return nullptr;
+#endif
 }
 
 } // extern "C"

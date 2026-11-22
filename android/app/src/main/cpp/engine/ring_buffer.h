@@ -75,6 +75,27 @@ public:
         return toRead;
     }
 
+    // Non-blocking read khusus untuk thread USB isochronous callback agar event pump tidak pernah deadlock
+    size_t readAvailable(uint8_t* destination, size_t count) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (count == 0 || size_ == 0 || stopped_) return 0;
+
+        size_t toRead = std::min(count, size_);
+        size_t firstPart = std::min(toRead, capacity_ - tail_);
+        std::copy(buffer_.data() + tail_, buffer_.data() + tail_ + firstPart, destination);
+
+        size_t secondPart = toRead - firstPart;
+        if (secondPart > 0) {
+            std::copy(buffer_.data(), buffer_.data() + secondPart, destination + firstPart);
+        }
+
+        tail_ = (tail_ + toRead) % capacity_;
+        size_ -= toRead;
+
+        cv_not_full_.notify_one();
+        return toRead;
+    }
+
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         head_ = 0;

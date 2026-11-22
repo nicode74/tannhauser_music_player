@@ -15,10 +15,26 @@ struct AVPacket;
 
 namespace tannhauser {
 
+struct AudioProbeResult {
+    bool success = false;
+    std::string title;
+    std::string artist;
+    std::string album;
+    int trackNumber = 0;
+    int sampleRate = 0;
+    int channels = 0;
+    int bitDepth = 0;
+    int64_t bitRate = 0;
+    int64_t durationMs = 0;
+    std::string codecName;
+};
+
 class AudioDecoder {
 public:
     AudioDecoder();
     ~AudioDecoder();
+
+    static AudioProbeResult probeAudioFile(const std::string& filePath);
 
     bool open(const std::string& filePath);
     bool decodeNextFrame(std::vector<uint8_t>& pcmOut);

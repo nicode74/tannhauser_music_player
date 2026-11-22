@@ -36,7 +36,7 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 2800),
     );
 
     _progressAnimation = CurvedAnimation(
@@ -50,7 +50,11 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        _finishSplash();
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) {
+            _finishSplash();
+          }
+        });
       }
     });
 
