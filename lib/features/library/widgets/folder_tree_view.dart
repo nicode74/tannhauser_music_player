@@ -434,7 +434,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                         onPressed: () {
                           final fTracks = sub.getAllTracksRecursively();
                           if (fTracks.isNotEmpty) {
-                            _state.setQueue(fTracks);
+                            _state.setQueue(fTracks, startIndex: 0);
                           }
                         },
                       ),
@@ -455,9 +455,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                 track: track,
                 isSelected: isSelected,
                 onTap: () {
-                  _state.loadFile(track).then((_) {
-                    _state.play();
-                  });
+                  _state.setQueue(tracks, startIndex: trackIndex);
                 },
               );
             },

@@ -156,7 +156,20 @@ class NativeAudioService {
 
   static final NativeAudioService instance = NativeAudioService._internal();
   factory NativeAudioService() => instance;
-  NativeAudioService._internal();
+  NativeAudioService._internal() {
+    _commandChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onVolumeChanged') {
+        final vol = (call.arguments?['volume'] as num?)?.toDouble();
+        if (vol != null) {
+          _volumeStreamController.add(vol);
+        }
+      }
+    });
+  }
+
+  final StreamController<double> _volumeStreamController =
+      StreamController<double>.broadcast();
+  Stream<double> get volumeEvents => _volumeStreamController.stream;
 
   Stream<Map<String, dynamic>>? _usbStream;
   Stream<Map<String, dynamic>>? _scanStream;
@@ -398,6 +411,28 @@ class NativeAudioService {
       return result ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  // Master Digital Volume Control
+  Future<bool> setVolume(double volume) async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('setVolume', {
+        'volume': volume.clamp(0.0, 1.0),
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<double> getVolume() async {
+    try {
+      final double? result =
+          await _commandChannel.invokeMethod<double>('getVolume');
+      return result ?? 1.0;
+    } catch (_) {
+      return 1.0;
     }
   }
 }

@@ -34,6 +34,10 @@ bool AudioEngine::setUsbFileDescriptor(int fd) {
   LOGI("AudioEngine::setUsbFileDescriptor - START: FD=%d", fd);
   std::lock_guard<std::recursive_mutex> lock(engineMutex_);
   bool res = usbDriver_->setFileDescriptor(fd);
+  if (res && decoder_->isOpen()) {
+    usbDriver_->configureAudioStreaming(decoder_->getFormat());
+    LOGI("AudioEngine::setUsbFileDescriptor - Reconfigured audio streaming on new USB connection");
+  }
   LOGI("AudioEngine::setUsbFileDescriptor - END: result=%d", res ? 1 : 0);
   return res;
 }
@@ -56,11 +60,20 @@ bool AudioEngine::play() {
     return true;
   }
 
+  if (state_ == PlaybackState::PAUSED) {
+    return resume();
+  }
+
   if (!decoder_->isOpen()) {
     if (currentFilePath_.empty() || !decoder_->open(currentFilePath_)) {
       LOGE("AudioEngine::play - No valid file opened to play.");
       return false;
     }
+  }
+
+  // Pastikan DAC terkonfigurasi jika terhubung
+  if (usbDriver_->isConnected()) {
+    usbDriver_->configureAudioStreaming(decoder_->getFormat());
   }
 
   ringBuffer_->reset();
@@ -73,9 +86,13 @@ bool AudioEngine::play() {
   // Mulai thread decoding FFmpeg latar belakang
   if (decodeThread_.joinable()) {
     if (decodeThread_.get_id() != std::this_thread::get_id()) {
+      isRunning_ = false;
+      ringBuffer_->stop();
       decodeThread_.join();
     }
   }
+  isRunning_ = true;
+  ringBuffer_->reset();
   decodeThread_ = std::thread(&AudioEngine::decodeWorkerLoop, this);
 
   if (stateCallback_) {
@@ -111,6 +128,11 @@ bool AudioEngine::resume() {
   if (state_ != PlaybackState::PAUSED) {
     LOGI("AudioEngine::resume - Not paused, cannot resume");
     return true;
+  }
+
+  if (usbDriver_->isConnected() && !usbDriver_->isStreaming()) {
+    usbDriver_->configureAudioStreaming(decoder_->getFormat());
+    usbDriver_->startStreaming(ringBuffer_);
   }
 
   state_ = PlaybackState::PLAYING;
@@ -216,9 +238,6 @@ bool AudioEngine::seek(int64_t positionMs) {
   std::lock_guard<std::recursive_mutex> lock(engineMutex_);
 
   bool wasPlaying = (state_ == PlaybackState::PLAYING);
-  if (wasPlaying) {
-    usbDriver_->stopStreaming();
-  }
 
   ringBuffer_->clear();
   bool success = decoder_->seek(positionMs);
@@ -228,17 +247,8 @@ bool AudioEngine::seek(int64_t positionMs) {
     currentPositionMs_ = positionMs;
   }
 
-  // Jika sedang memutar, hidupkan kembali decodeThread dan mulai streaming dari posisi baru
-  if (wasPlaying && success) {
-    if (decodeThread_.joinable()) {
-      if (decodeThread_.get_id() != std::this_thread::get_id()) {
-        decodeThread_.join();
-      }
-    }
-    isRunning_ = true;
-    state_ = PlaybackState::PLAYING;
+  if (wasPlaying && !usbDriver_->isStreaming()) {
     usbDriver_->startStreaming(ringBuffer_);
-    decodeThread_ = std::thread(&AudioEngine::decodeWorkerLoop, this);
   }
 
   LOGI("AudioEngine::seek - END: result=%d", success ? 1 : 0);
@@ -257,7 +267,8 @@ PlaybackInfo AudioEngine::getPlaybackInfo() const {
   // Kalkulasi realtime posisi berbasis akumulasi byte PCM yang terkirim ke hardware
   if (state_ == PlaybackState::PLAYING && usbDriver_->isStreaming()) {
     const AudioFormat &fmt = info.format;
-    int bytesPerSample = (fmt.bitDepth > 0 ? fmt.bitDepth : 16) / 8;
+    int hwSubslot = usbDriver_->getHwSubslotSize();
+    int bytesPerSample = (hwSubslot > 0) ? hwSubslot : ((fmt.bitDepth > 0 ? fmt.bitDepth : 16) / 8);
     int channels = fmt.channels > 0 ? fmt.channels : 2;
     int sampleRate = fmt.sampleRate > 0 ? fmt.sampleRate : 44100;
     int bytesPerSec = sampleRate * channels * bytesPerSample;
@@ -307,6 +318,10 @@ void AudioEngine::decodeWorkerLoop() {
         peqEngine_.process(pcmFrame.data(), pcmFrame.size(),
                            decoder_->getFormat());
       }
+      float vol = masterVolume_.load();
+      if (vol < 0.999f) {
+        applyVolume(pcmFrame.data(), pcmFrame.size(), decoder_->getFormat(), vol);
+      }
       ringBuffer_->write(pcmFrame.data(), pcmFrame.size());
     }
   }
@@ -326,6 +341,54 @@ void AudioEngine::setPeqPreamp(double preampDb) {
 void AudioEngine::updatePeqBand(int index, int type, double fc, double gainDb,
                                 double q, bool enabled) {
   peqEngine_.updateBand(index, type, fc, gainDb, q, enabled);
+}
+
+void AudioEngine::setVolume(float volume) {
+  if (volume < 0.0f) volume = 0.0f;
+  if (volume > 1.0f) volume = 1.0f;
+  masterVolume_.store(volume);
+  LOGI("AudioEngine::setVolume - Volume updated to %.2f", volume);
+}
+
+void AudioEngine::applyVolume(uint8_t* data, size_t size, const AudioFormat& format, float volume) {
+  if (volume >= 0.999f || data == nullptr || size == 0) {
+    return; // 100% bit-perfect bypass
+  }
+  if (volume <= 0.0001f) {
+    std::memset(data, 0, size);
+    return;
+  }
+
+  if (format.bitDepth == 16) {
+    int16_t* samples = reinterpret_cast<int16_t*>(data);
+    size_t count = size / sizeof(int16_t);
+    for (size_t i = 0; i < count; ++i) {
+      float s = samples[i] * volume;
+      if (s > 32767.0f) s = 32767.0f;
+      else if (s < -32768.0f) s = -32768.0f;
+      samples[i] = static_cast<int16_t>(s);
+    }
+  } else if (format.bitDepth == 32) {
+    int32_t* samples = reinterpret_cast<int32_t*>(data);
+    size_t count = size / sizeof(int32_t);
+    for (size_t i = 0; i < count; ++i) {
+      double s = static_cast<double>(samples[i]) * volume;
+      if (s > 2147483647.0) s = 2147483647.0;
+      else if (s < -2147483648.0) s = -2147483648.0;
+      samples[i] = static_cast<int32_t>(s);
+    }
+  } else if (format.bitDepth == 24) {
+    for (size_t i = 0; i + 2 < size; i += 3) {
+      int32_t sample = (int32_t)((uint32_t)data[i] | ((uint32_t)data[i+1] << 8) | ((uint32_t)(int8_t)data[i+2] << 16));
+      double s = sample * volume;
+      if (s > 8388607.0) s = 8388607.0;
+      else if (s < -8388608.0) s = -8388608.0;
+      int32_t outSample = static_cast<int32_t>(s);
+      data[i] = outSample & 0xFF;
+      data[i+1] = (outSample >> 8) & 0xFF;
+      data[i+2] = (outSample >> 16) & 0xFF;
+    }
+  }
 }
 
 void AudioEngine::resetPeqStates() { peqEngine_.resetStates(); }

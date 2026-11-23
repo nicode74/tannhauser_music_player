@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'features/library/library_page.dart';
+import 'features/peq/controllers/peq_state.dart';
 import 'features/player/controllers/player_state.dart';
 import 'features/player/now_playing_page.dart';
 import 'features/splash/eva_splash_screen.dart';
@@ -18,17 +19,20 @@ class TannhauserApp extends StatefulWidget {
 
 class _TannhauserAppState extends State<TannhauserApp> {
   late final PlayerState _playerState;
+  late final PeqState _peqState;
   bool _showSplash = true;
 
   @override
   void initState() {
     super.initState();
     _playerState = PlayerState()..init();
+    _peqState = PeqState();
   }
 
   @override
   void dispose() {
     _playerState.dispose();
+    _peqState.dispose();
     super.dispose();
   }
 
@@ -59,6 +63,7 @@ class _TannhauserAppState extends State<TannhauserApp> {
                         MaterialPageRoute(
                           builder: (_) => NowPlayingPage(
                             playerState: _playerState,
+                            peqState: _peqState,
                           ),
                         ),
                       );

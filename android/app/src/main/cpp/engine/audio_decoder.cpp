@@ -320,11 +320,19 @@ AudioProbeResult AudioDecoder::probeAudioFile(const std::string& filePath) {
         res.channels = codecpar->ch_layout.nb_channels;
 
         // Bit depth resolution
-        int bits = codecpar->bits_per_raw_sample;
-        if (bits <= 0) {
-            bits = av_get_bytes_per_sample(static_cast<AVSampleFormat>(codecpar->format)) * 8;
+        bool isFloat = (codecpar->format == AV_SAMPLE_FMT_FLT ||
+                        codecpar->format == AV_SAMPLE_FMT_FLTP ||
+                        codecpar->format == AV_SAMPLE_FMT_DBL ||
+                        codecpar->format == AV_SAMPLE_FMT_DBLP);
+        if (isFloat) {
+            res.bitDepth = 16;
+        } else {
+            int bits = codecpar->bits_per_raw_sample;
+            if (bits <= 0) {
+                bits = av_get_bytes_per_sample(static_cast<AVSampleFormat>(codecpar->format)) * 8;
+            }
+            res.bitDepth = bits > 0 ? bits : 16;
         }
-        res.bitDepth = bits > 0 ? bits : 16;
         res.bitRate = codecpar->bit_rate > 0 ? codecpar->bit_rate : fmtCtx->bit_rate;
 
         // Codec short name

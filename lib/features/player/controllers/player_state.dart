@@ -36,7 +36,12 @@ class PlayerState extends ChangeNotifier {
   int _sleepTimeRemainingSeconds = 0;
   bool _sleepAtTrackEnd = false;
 
+  // Master Digital Volume (0.0 to 1.0)
+  double _volume = 1.0;
+  StreamSubscription? _volumeSubscription;
+
   // Getters
+  double get volume => _volume;
   List<AudioTrack> get tracks => _tracks;
   List<AudioTrack> get queue => _queue;
   PlaybackRepeatMode get repeatMode => _repeatMode;
@@ -183,8 +188,26 @@ class PlayerState extends ChangeNotifier {
 
   void init() {
     _initUsbListener();
+    _initVolumeListener();
     _startPollingPlaybackInfo();
     _hydrateCacheAndScan();
+  }
+
+  void _initVolumeListener() {
+    _volumeSubscription = _audioService.volumeEvents.listen((vol) {
+      _volume = vol;
+      notifyListeners();
+    });
+    _audioService.getVolume().then((vol) {
+      _volume = vol;
+      notifyListeners();
+    });
+  }
+
+  Future<void> setVolume(double vol) async {
+    _volume = vol.clamp(0.0, 1.0);
+    notifyListeners();
+    await _audioService.setVolume(_volume);
   }
 
   Future<void> _hydrateCacheAndScan() async {
@@ -463,6 +486,7 @@ class PlayerState extends ChangeNotifier {
     _pollingTimer?.cancel();
     _usbSubscription?.cancel();
     _scanSubscription?.cancel();
+    _volumeSubscription?.cancel();
     _sleepTimer?.cancel();
     super.dispose();
   }

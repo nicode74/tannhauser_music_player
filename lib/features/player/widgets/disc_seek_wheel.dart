@@ -14,6 +14,8 @@ class DiscSeekWheel extends StatefulWidget {
   final bool isPlaying;
   final bool isUsbConnected;
   final String? artworkPath;
+  final VoidCallback? onSeekStart;
+  final VoidCallback? onSeekEnd;
   final ValueChanged<int>? onSeekPreview;
   final ValueChanged<int>? onSeekCommit;
 
@@ -25,6 +27,8 @@ class DiscSeekWheel extends StatefulWidget {
     this.isPlaying = false,
     this.isUsbConnected = false,
     this.artworkPath,
+    this.onSeekStart,
+    this.onSeekEnd,
     this.onSeekPreview,
     this.onSeekCommit,
   });
@@ -58,6 +62,7 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
     setState(() {
       _isDragging = true;
     });
+    widget.onSeekStart?.call();
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -90,6 +95,7 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
       _isDragging = false;
       _lastRawAngle = null;
     });
+    widget.onSeekEnd?.call();
     widget.onSeekCommit?.call(_previewPositionMs);
   }
 
@@ -99,6 +105,7 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
       _isDragging = false;
       _lastRawAngle = null;
     });
+    widget.onSeekEnd?.call();
     widget.onSeekCommit?.call(_previewPositionMs);
   }
 

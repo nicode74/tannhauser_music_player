@@ -210,6 +210,20 @@ Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeResetP
     return JNI_TRUE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeSetVolume(
+        JNIEnv* /* env */, jobject /* this */, jfloat volume) {
+    LOGI("JNI: nativeSetVolume - volume=%.2f", (float)volume);
+    AudioEngine::getInstance().setVolume(static_cast<float>(volume));
+    return JNI_TRUE;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeGetVolume(
+        JNIEnv* /* env */, jobject /* this */) {
+    return AudioEngine::getInstance().getVolume();
+}
+
 JNIEXPORT jobject JNICALL
 Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeProbeAudioFile(
         JNIEnv* env, jobject /* this */, jstring filePath) {

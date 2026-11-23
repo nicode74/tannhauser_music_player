@@ -43,17 +43,16 @@ class CollectionDetailPage extends StatelessWidget {
 
   void _playAll() {
     if (tracks.isEmpty) return;
-    playerState.loadFile(tracks.first).then((_) {
-      playerState.play();
-    });
+    playerState.setQueue(tracks, startIndex: 0);
   }
 
   void _shufflePlay() {
     if (tracks.isEmpty) return;
     final randomIndex = Random().nextInt(tracks.length);
-    playerState.loadFile(tracks[randomIndex]).then((_) {
-      playerState.play();
-    });
+    playerState.setQueue(tracks, startIndex: randomIndex);
+    if (!playerState.isShuffle) {
+      playerState.toggleShuffle();
+    }
   }
 
   @override
@@ -177,9 +176,7 @@ class CollectionDetailPage extends StatelessWidget {
                             track: track,
                             isSelected: isSelected,
                             onTap: () {
-                              playerState.loadFile(track).then((_) {
-                                playerState.play();
-                              });
+                              playerState.setQueue(tracks, startIndex: index);
                             },
                           );
                         },

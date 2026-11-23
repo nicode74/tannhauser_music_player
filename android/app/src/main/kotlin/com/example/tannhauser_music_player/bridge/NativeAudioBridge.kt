@@ -37,6 +37,10 @@ object NativeAudioBridge {
     external fun nativeUpdatePeqBand(index: Int, type: Int, fc: Double, gainDb: Double, q: Double, enabled: Boolean): Boolean
     external fun nativeResetPeqStates(): Boolean
 
+    // Master Digital Volume Control (0.0f - 1.0f)
+    external fun nativeSetVolume(volume: Float): Boolean
+    external fun nativeGetVolume(): Float
+
     // Fast Header Prober (FFmpeg without CodecContext allocation)
     external fun nativeProbeAudioFile(filePath: String): Map<String, Any>?
 }

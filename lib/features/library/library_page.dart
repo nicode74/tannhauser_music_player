@@ -219,9 +219,7 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
           track: track,
           isSelected: isSelected,
           onTap: () {
-            widget.playerState.loadFile(track).then((_) {
-              widget.playerState.play();
-            });
+            widget.playerState.setQueue(tracks, startIndex: index);
           },
         );
       },

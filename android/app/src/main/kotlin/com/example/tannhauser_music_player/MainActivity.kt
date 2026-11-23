@@ -37,6 +37,8 @@ class MainActivity : FlutterActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var currentTrackTitle: String = "Tannhäuser Audio"
     private var currentTrackArtist: String = "Bit-Perfect Mode"
+    private var commandMethodChannel: MethodChannel? = null
+    private var currentVolume: Float = 1.0f
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -84,7 +86,9 @@ class MainActivity : FlutterActivity() {
         )
 
         // MethodChannel for Playback & Control Commands (All JNI calls dispatched to background thread)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMMAND_CHANNEL).setMethodCallHandler { call, result ->
+        val cmdChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMMAND_CHANNEL)
+        commandMethodChannel = cmdChannel
+        cmdChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getAppDocumentsPath" -> {
                     result.success(applicationContext.filesDir.absolutePath)
@@ -132,6 +136,39 @@ class MainActivity : FlutterActivity() {
                     val excludedList = call.argument<List<String>>("excludedFolders") ?: emptyList()
                     val excludedSet = excludedList.toSet()
 
+                    val additionalRoots = mutableListOf<File>()
+                    try {
+                        val extDirs = ContextCompat.getExternalFilesDirs(applicationContext, null)
+                        for (d in extDirs) {
+                            if (d != null) {
+                                val rootPath = d.absolutePath.substringBefore("/Android/data")
+                                val rootFile = File(rootPath)
+                                if (rootFile.exists() && rootFile.isDirectory) {
+                                    additionalRoots.add(rootFile)
+                                    Log.i(TAG, "Discovered external storage volume: $rootPath")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error getting external files dirs: ${e.message}")
+                    }
+
+                    try {
+                        val sm = getSystemService(android.content.Context.STORAGE_SERVICE) as? android.os.storage.StorageManager
+                        sm?.storageVolumes?.forEach { vol ->
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                vol.directory?.let { dir ->
+                                    if (dir.exists() && dir.isDirectory && !additionalRoots.contains(dir)) {
+                                        additionalRoots.add(dir)
+                                        Log.i(TAG, "Discovered StorageManager volume: ${dir.absolutePath}")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error querying StorageManager: ${e.message}")
+                    }
+
                     backgroundExecutor.execute {
                         try {
                             val scanner = FileScanner()
@@ -140,7 +177,8 @@ class MainActivity : FlutterActivity() {
                                 customPaths = customPaths,
                                 minDurationMs = minDurationMs,
                                 minSizeBytes = minSizeBytes,
-                                excludedFolders = excludedSet
+                                excludedFolders = excludedSet,
+                                additionalRoots = additionalRoots
                             ) { currentDir, scannedCount, isDone ->
                                 runOnUiThread {
                                     scanEventSink?.success(
@@ -400,6 +438,29 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "setVolume" -> {
+                    val volume = (call.argument<Number>("volume")?.toFloat() ?: 1.0f).coerceIn(0.0f, 1.0f)
+                    currentVolume = volume
+                    backgroundExecutor.execute {
+                        try {
+                            val success = NativeAudioBridge.nativeSetVolume(volume)
+                            runOnUiThread { result.success(success) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("VOLUME_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "getVolume" -> {
+                    backgroundExecutor.execute {
+                        try {
+                            val volume = NativeAudioBridge.nativeGetVolume()
+                            currentVolume = volume
+                            runOnUiThread { result.success(volume.toDouble()) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("VOLUME_ERROR", e.message, null) }
+                        }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -491,6 +552,32 @@ class MainActivity : FlutterActivity() {
         }
         Log.i(TAG, "queryAudioFiles found ${audioList.size} audio tracks.")
         return audioList
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (usbBridge?.isConnected == true) {
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_VOLUME_UP -> {
+                    val newVol = (currentVolume + 0.05f).coerceIn(0.0f, 1.0f)
+                    currentVolume = newVol
+                    backgroundExecutor.execute {
+                        NativeAudioBridge.nativeSetVolume(newVol)
+                    }
+                    commandMethodChannel?.invokeMethod("onVolumeChanged", mapOf("volume" to newVol.toDouble()))
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    val newVol = (currentVolume - 0.05f).coerceIn(0.0f, 1.0f)
+                    currentVolume = newVol
+                    backgroundExecutor.execute {
+                        NativeAudioBridge.nativeSetVolume(newVol)
+                    }
+                    commandMethodChannel?.invokeMethod("onVolumeChanged", mapOf("volume" to newVol.toDouble()))
+                    return true
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {

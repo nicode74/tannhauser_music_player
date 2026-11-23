@@ -49,6 +49,10 @@ public:
     void updatePeqBand(int index, int type, double fc, double gainDb, double q, bool enabled);
     void resetPeqStates();
 
+    // Master Digital Volume Control (0.0f - 1.0f)
+    void setVolume(float volume);
+    float getVolume() const { return masterVolume_.load(); }
+
     PlaybackState getState() const { return state_.load(); }
     PlaybackInfo getPlaybackInfo() const;
 
@@ -62,9 +66,11 @@ private:
     AudioEngine& operator=(const AudioEngine&) = delete;
 
     void decodeWorkerLoop();
+    void applyVolume(uint8_t* data, size_t size, const AudioFormat& format, float volume);
 
     std::atomic<PlaybackState> state_;
     std::atomic<bool> isRunning_;
+    std::atomic<float> masterVolume_{1.0f};
     mutable std::atomic<int64_t> currentPositionMs_;
     std::atomic<int64_t> seekBasePositionMs_;
     std::atomic<int64_t> totalDurationMs_;

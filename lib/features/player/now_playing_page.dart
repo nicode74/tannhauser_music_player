@@ -40,6 +40,7 @@ class NowPlayingPage extends StatefulWidget {
 class _NowPlayingPageState extends State<NowPlayingPage> {
   PlayerState get _playerState => widget.playerState;
   late final PeqState _peqState;
+  bool _isScrubbing = false;
 
   @override
   void initState() {
@@ -121,6 +122,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
           ),
           body: SafeArea(
             child: SingleChildScrollView(
+              physics: _isScrubbing
+                  ? const NeverScrollableScrollPhysics()
+                  : const BouncingScrollPhysics(),
               padding: AppSpacing.screenPadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -146,6 +150,16 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                       isPlaying: isPlaying,
                       isUsbConnected: isUsbConnected,
                       artworkPath: null,
+                      onSeekStart: () {
+                        setState(() {
+                          _isScrubbing = true;
+                        });
+                      },
+                      onSeekEnd: () {
+                        setState(() {
+                          _isScrubbing = false;
+                        });
+                      },
                       onSeekCommit: (seekMs) {
                         _playerState.seek(seekMs);
                       },
@@ -155,6 +169,10 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
                   // 5. Lower-Mid Parametric EQ Mini Preview Panel
                   _buildMiniPeqPreviewPanel(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // 5b. EVA-01 Master Volume Slider
+                  _buildMasterVolumeSlider(),
                   const SizedBox(height: AppSpacing.lg),
 
                   // 6. Tactile Transport Deck
@@ -375,6 +393,72 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMasterVolumeSlider() {
+    final vol = _playerState.volume;
+    final volPercent = (vol * 100).toInt();
+
+    return HardwarePanel(
+      inset: true,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Icon(
+            vol == 0
+                ? Icons.volume_off
+                : (vol < 0.5 ? Icons.volume_down : Icons.volume_up),
+            size: 18,
+            color: vol > 0.0 ? AppColors.acidGreen : AppColors.textMuted,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            'VOL',
+            style: AppTypography.telemetrySmall.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: AppColors.acidGreen,
+                inactiveTrackColor: AppColors.surface,
+                thumbColor: AppColors.acidGreen,
+                trackHeight: 3.0,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+              ),
+              child: Slider(
+                value: vol,
+                min: 0.0,
+                max: 1.0,
+                onChanged: (val) {
+                  _playerState.setVolume(val);
+                },
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppColors.border, width: 0.8),
+            ),
+            child: Text(
+              '${volPercent.toString().padLeft(3)}%',
+              style: AppTypography.codeSnippet.copyWith(
+                color: vol > 0.8 ? AppColors.evaPurple : AppColors.acidGreen,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

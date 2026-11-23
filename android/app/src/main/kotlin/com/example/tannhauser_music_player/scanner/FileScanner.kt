@@ -34,6 +34,7 @@ class FileScanner {
         minDurationMs: Long = 30000L,
         minSizeBytes: Long = 512L * 1024L,
         excludedFolders: Set<String> = emptySet(),
+        additionalRoots: List<File> = emptyList(),
         onProgress: (currentDir: String, scannedCount: Int, isDone: Boolean) -> Unit
     ): List<Map<String, Any>> {
         isCancelled.set(false)
@@ -48,19 +49,29 @@ class FileScanner {
                 }
             }
         } else {
-            // Default storage paths: Emulated primary + external SD card mounts
+            // 1. Primary internal storage
             val primary = Environment.getExternalStorageDirectory()
-            if (primary != null && primary.exists() && primary.canRead()) {
+            if (primary != null && primary.exists()) {
                 rootDirs.add(primary)
             }
 
-            val storageDir = File("/storage")
-            if (storageDir.exists() && storageDir.isDirectory) {
-                storageDir.listFiles()?.forEach { file ->
-                    val name = file.name.lowercase(Locale.ROOT)
-                    if (file.isDirectory && file.canRead() && name != "emulated" && name != "self" && name != "knox") {
-                        if (!rootDirs.contains(file)) {
-                            rootDirs.add(file)
+            // 2. Storage roots discovered via Android framework (SD Cards, USB OTG)
+            for (root in additionalRoots) {
+                if (root.exists() && root.isDirectory && !rootDirs.contains(root)) {
+                    rootDirs.add(root)
+                }
+            }
+
+            // 3. Fallback scan on standard Android mount points
+            for (mountPoint in listOf("/storage", "/mnt/media_rw", "/mnt")) {
+                val dir = File(mountPoint)
+                if (dir.exists() && dir.isDirectory) {
+                    dir.listFiles()?.forEach { file ->
+                        val name = file.name.lowercase(Locale.ROOT)
+                        if (file.isDirectory && name != "emulated" && name != "self" && name != "knox") {
+                            if (!rootDirs.contains(file)) {
+                                rootDirs.add(file)
+                            }
                         }
                     }
                 }
