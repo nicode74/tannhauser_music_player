@@ -75,12 +75,14 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final progress = _progressAnimation.value;
     final syncRate = (progress * 100.0).clamp(0.0, 100.0);
     final activeLogsCount = (progress * (_bootLogs.length + 1)).floor().clamp(1, _bootLogs.length);
+    final unitCode = colors.unitCode;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: colors.bg,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _finishSplash,
@@ -100,15 +102,15 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                     Text(
                       '[ NERV // AUDIO TELEMETRY ]',
                       style: AppTypography.telemetrySmall.copyWith(
-                        color: AppColors.hazardOrange,
+                        color: colors.hazardOrange,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0,
                       ),
                     ),
                     Text(
-                      'UNIT-01 : BIT-PERFECT',
+                      '$unitCode : BIT-PERFECT',
                       style: AppTypography.telemetrySmall.copyWith(
-                        color: AppColors.evaPurple,
+                        color: colors.evaPurple,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -118,22 +120,22 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
 
               const Spacer(flex: 1),
 
-              // 3. Central EVA-01 Title Emblem & Synchro Oscilloscope
+              // 3. Central EVA Title Emblem & Synchro Oscilloscope
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Container(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: colors.surface,
                     borderRadius: AppSpacing.borderPanel,
                     border: Border.all(
-                      color: progress >= 0.95 ? AppColors.acidGreen : AppColors.borderStrong,
+                      color: progress >= 0.95 ? colors.acidGreen : colors.borderStrong,
                       width: 1.5,
                     ),
                     boxShadow: progress >= 0.95
                         ? [
                             BoxShadow(
-                              color: AppColors.acidGreen.withOpacity(0.15),
+                              color: colors.acidGreen.withOpacity(0.15),
                               blurRadius: 16,
                               spreadRadius: 2,
                             ),
@@ -149,9 +151,9 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                           Container(
                             width: 6,
                             height: 6,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.hazardOrange,
+                              color: colors.hazardOrange,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -159,7 +161,7 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                             'EMERGENCY AUDIO CONSOLE',
                             style: AppTypography.telemetrySmall.copyWith(
                               letterSpacing: 1.5,
-                              color: AppColors.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                         ],
@@ -173,15 +175,15 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                           fontSize: 28,
                           letterSpacing: 4.0,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.textPrimary,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
 
                       Text(
-                        '// UNIT-01 BIT-PERFECT TERMINAL //',
+                        '// $unitCode BIT-PERFECT TERMINAL //',
                         style: AppTypography.telemetrySmall.copyWith(
-                          color: AppColors.evaPurple,
+                          color: colors.evaPurple,
                           letterSpacing: 1.2,
                           fontWeight: FontWeight.bold,
                         ),
@@ -193,14 +195,15 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                         height: 64,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceInset,
+                          color: colors.surfaceInset,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: colors.border),
                         ),
                         child: CustomPaint(
                           painter: _SynchroWaveformPainter(
                             progress: progress,
-                            accentColor: progress >= 0.85 ? AppColors.acidGreen : AppColors.evaPurple,
+                            accentColor: progress >= 0.85 ? colors.acidGreen : colors.evaPurple,
+                            gridColor: colors.border,
                           ),
                         ),
                       ),
@@ -213,14 +216,14 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                           Text(
                             'SYNCHRO RATE',
                             style: AppTypography.telemetrySmall.copyWith(
-                              color: AppColors.textSecondary,
+                              color: colors.textSecondary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
                             '${syncRate.toStringAsFixed(1)} %',
                             style: AppTypography.telemetryLarge.copyWith(
-                              color: progress >= 0.85 ? AppColors.acidGreen : AppColors.evaPurple,
+                              color: progress >= 0.85 ? colors.acidGreen : colors.evaPurple,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -241,15 +244,17 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceInset,
+                    color: colors.surfaceInset,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: colors.border),
                   ),
                   child: ListView.builder(
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: activeLogsCount,
                     itemBuilder: (context, idx) {
-                      final log = _bootLogs[idx];
+                      final log = idx == 0
+                          ? '> BOOT: TANNHÄUSER AUDIO CORE // $unitCode'
+                          : _bootLogs[idx];
                       final isLatest = idx == activeLogsCount - 1;
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.5),
@@ -260,8 +265,8 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
                           style: AppTypography.telemetrySmall.copyWith(
                             fontSize: 9.5,
                             color: isLatest
-                                ? (progress >= 0.95 ? AppColors.acidGreen : AppColors.textPrimary)
-                                : AppColors.textMuted,
+                                ? (progress >= 0.95 ? colors.acidGreen : colors.textPrimary)
+                                : colors.textMuted,
                             fontWeight: isLatest ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
@@ -276,7 +281,7 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
               // 6. Segmented LED Loading Bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: _buildSegmentedLedBar(progress),
+                child: _buildSegmentedLedBar(context, progress),
               ),
 
               const Spacer(flex: 2),
@@ -285,14 +290,14 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceInset,
+                  color: colors.surfaceInset,
                   borderRadius: AppSpacing.borderBadge,
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Text(
                   '[ KETUK LAYAR UNTUK MELOMPATI ]',
                   style: AppTypography.telemetrySmall.copyWith(
-                    color: AppColors.textMuted,
+                    color: colors.textMuted,
                     fontSize: 9,
                     letterSpacing: 0.8,
                   ),
@@ -309,24 +314,25 @@ class _EvaSplashScreenState extends State<EvaSplashScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildSegmentedLedBar(double progress) {
+  Widget _buildSegmentedLedBar(BuildContext context, double progress) {
+    final colors = AppColors.of(context);
     const totalSegments = 24;
     final activeSegments = (progress * totalSegments).floor();
 
     return Row(
       children: List.generate(totalSegments, (idx) {
         final isActive = idx < activeSegments;
-        final color = progress >= 0.85 ? AppColors.acidGreen : AppColors.evaPurple;
+        final color = progress >= 0.85 ? colors.acidGreen : colors.evaPurple;
 
         return Expanded(
           child: Container(
             height: 8,
             margin: const EdgeInsets.symmetric(horizontal: 1.0),
             decoration: BoxDecoration(
-              color: isActive ? color : AppColors.surfaceInset,
+              color: isActive ? color : colors.surfaceInset,
               borderRadius: BorderRadius.circular(1.5),
               border: Border.all(
-                color: isActive ? color : AppColors.border,
+                color: isActive ? color : colors.border,
                 width: 0.5,
               ),
               boxShadow: isActive
@@ -354,25 +360,37 @@ class _HazardStripeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SizedBox(
       height: height,
       width: double.infinity,
       child: CustomPaint(
-        painter: _HazardStripePainter(),
+        painter: _HazardStripePainter(
+          stripeColor: colors.hazardOrange,
+          bgColor: colors.surfaceInset,
+        ),
       ),
     );
   }
 }
 
 class _HazardStripePainter extends CustomPainter {
+  final Color stripeColor;
+  final Color bgColor;
+
+  _HazardStripePainter({
+    required this.stripeColor,
+    required this.bgColor,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
     final stripePaint = Paint()
-      ..color = AppColors.hazardOrange
+      ..color = stripeColor
       ..style = PaintingStyle.fill;
 
     final bgPaint = Paint()
-      ..color = AppColors.surfaceInset
+      ..color = bgColor
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(Offset.zero & size, bgPaint);
@@ -393,17 +411,21 @@ class _HazardStripePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _HazardStripePainter oldDelegate) {
+    return oldDelegate.stripeColor != stripeColor || oldDelegate.bgColor != bgColor;
+  }
 }
 
 /// Oscilloscope Synchro Waveform Visualizer
 class _SynchroWaveformPainter extends CustomPainter {
   final double progress;
   final Color accentColor;
+  final Color gridColor;
 
   _SynchroWaveformPainter({
     required this.progress,
     required this.accentColor,
+    required this.gridColor,
   });
 
   @override
@@ -414,7 +436,7 @@ class _SynchroWaveformPainter extends CustomPainter {
 
     // 1. Grid Lines
     final gridPaint = Paint()
-      ..color = AppColors.border.withOpacity(0.4)
+      ..color = gridColor.withOpacity(0.4)
       ..strokeWidth = 0.8;
 
     canvas.drawLine(Offset(0, midY), Offset(w, midY), gridPaint);

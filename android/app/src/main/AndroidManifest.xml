@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:label="tannhauser_music_player"
+        android:label="Tannhauser"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -28,11 +28,54 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
         </activity>
+
+        <!-- Dynamic Launcher Icons (EVA-00 .. EVA-13) -->
+        <activity-alias android:name=".Launcher_eva_00_proto" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_00_proto" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_00_blue" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_00_blue" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_01" android:enabled="true" android:exported="true" android:icon="@mipmap/ic_launcher_eva_01" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_02" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_02" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_03" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_03" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_04" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_04" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_05" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_05" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_06" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_06" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_07" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_07" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_08" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_08" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_09" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_09" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_10" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_10" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_11" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_11" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_12" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_12" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_eva_13" android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_eva_13" android:label="Tannhauser" android:targetActivity=".MainActivity">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity-alias>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

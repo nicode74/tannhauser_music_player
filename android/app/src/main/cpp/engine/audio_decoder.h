@@ -35,6 +35,7 @@ public:
     ~AudioDecoder();
 
     static AudioProbeResult probeAudioFile(const std::string& filePath);
+    static bool extractArtwork(const std::string& filePath, const std::string& outputPath);
 
     bool open(const std::string& filePath);
     bool decodeNextFrame(std::vector<uint8_t>& pcmOut);

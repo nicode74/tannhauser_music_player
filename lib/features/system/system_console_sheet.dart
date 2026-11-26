@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/theme/eva_palette.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/hardware_panel.dart';
 import '../../core/widgets/status_pill.dart';
 import '../../core/widgets/tactile_button.dart';
@@ -21,7 +23,7 @@ class SystemConsoleSheet extends StatefulWidget {
   static Future<void> show(BuildContext context, PlayerState playerState) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -67,7 +69,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.borderStrong,
+                    color: AppColors.of(context).borderStrong,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -80,7 +82,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.settings_input_component, color: AppColors.evaPurple, size: 18),
+                      Icon(Icons.settings_input_component, color: AppColors.of(context).evaPurple, size: 18),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
@@ -114,7 +116,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                             Text(
                               'USB HARDWARE DIAGNOSTICS',
                               style: AppTypography.telemetrySmall.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.of(context).textSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -144,7 +146,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                             Text(
                               'AKSI HARDWARE & PENYIMPANAN',
                               style: AppTypography.telemetrySmall.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.of(context).textSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -190,7 +192,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                   ? 'SLEEP TIMER: ${_state.sleepTimeFormatted}'
                                   : 'ATUR SLEEP TIMER',
                               isActive: _state.isSleepTimerActive,
-                              ledColor: AppColors.acidGreen,
+                              ledColor: AppColors.of(context).acidGreen,
                               onPressed: () {
                                 Navigator.pop(context);
                                 SleepTimerSheet.show(context, _state);
@@ -201,7 +203,11 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 3. Blacklist / Excluded Folders Panel
+                      // 3. Terminal Color Palette Selector (EVA-00 .. EVA-13)
+                      _buildPaletteSelector(context),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 4. Blacklist / Excluded Folders Panel
                       HardwarePanel(
                         padding: AppSpacing.edgeMd,
                         child: Column(
@@ -210,7 +216,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                             Text(
                               'FOLDER TERKECUALIKAN (${_state.excludedFolders.length})',
                               style: AppTypography.telemetrySmall.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.of(context).textSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -220,7 +226,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                                 child: Text(
                                   'Tidak ada folder yang dikeluarkan dari library. Tekan lama pada folder di tab FOLDERS untuk mengeluarkan folder yang tidak diinginkan.',
-                                  style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                                  style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
                                 ),
                               )
                             else
@@ -236,7 +242,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                   return ListTile(
                                     dense: true,
                                     contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(Icons.folder_off, color: AppColors.hazardOrange, size: 20),
+                                    leading: Icon(Icons.folder_off, color: AppColors.of(context).hazardOrange, size: 20),
                                     title: Text(
                                       folderName,
                                       style: AppTypography.trackTitle.copyWith(fontSize: 13),
@@ -244,13 +250,13 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                     ),
                                     subtitle: Text(
                                       folder,
-                                      style: AppTypography.codeSnippet.copyWith(fontSize: 10, color: AppColors.textMuted),
+                                      style: AppTypography.codeSnippet.copyWith(fontSize: 10, color: AppColors.of(context).textMuted),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     trailing: TextButton.icon(
                                       style: TextButton.styleFrom(
                                         visualDensity: VisualDensity.compact,
-                                        foregroundColor: AppColors.acidGreen,
+                                        foregroundColor: AppColors.of(context).acidGreen,
                                       ),
                                       icon: const Icon(Icons.restore, size: 16),
                                       label: const Text('PULIHKAN'),
@@ -283,7 +289,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                       Text(
                                         'SOFTWARE PREVIEW FALLBACK',
                                         style: AppTypography.telemetrySmall.copyWith(
-                                          color: AppColors.textPrimary,
+                                          color: AppColors.of(context).textPrimary,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -297,7 +303,7 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
                                 ),
                                 Switch(
                                   value: _audioTrackFallbackEnabled,
-                                  activeColor: AppColors.evaPurple,
+                                  activeColor: AppColors.of(context).evaPurple,
                                   onChanged: (val) {
                                     setState(() {
                                       _audioTrackFallbackEnabled = val;
@@ -321,20 +327,167 @@ class _SystemConsoleSheetState extends State<SystemConsoleSheet> {
     );
   }
 
+  Widget _buildPaletteSelector(BuildContext context) {
+    final colors = AppColors.of(context);
+    final themeController = ThemeScope.maybeOf(context);
+    final activeId = themeController?.palette.id ?? colors.id;
+
+    return HardwarePanel(
+      padding: AppSpacing.edgeMd,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'SKEMA WARNA TERMINAL',
+                  style: AppTypography.telemetrySmall.copyWith(
+                    color: colors.textSecondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.primaryDim.withOpacity(0.45),
+                  borderRadius: AppSpacing.borderBadge,
+                  border: Border.all(color: colors.primary, width: 0.8),
+                ),
+                child: Text(
+                  colors.unitCode,
+                  style: AppTypography.telemetrySmall.copyWith(
+                    fontSize: 9.5,
+                    color: colors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Pilih profil warna Evangelion Unit (EVA-00 s.d. EVA-13). Perubahan diterapkan seketika.',
+            style: AppTypography.bodySmall.copyWith(
+              fontSize: 10.5,
+              color: colors.textMuted,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: EvaPalette.presets.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 2.35,
+            ),
+            itemBuilder: (context, idx) {
+              final preset = EvaPalette.presets[idx];
+              final isSelected = preset.id == activeId;
+
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                label: 'Tema ${preset.name}, ${preset.subtitle}',
+                child: InkWell(
+                  onTap: () {
+                    themeController?.setPalette(preset.id);
+                  },
+                  borderRadius: AppSpacing.borderButton,
+                  splashColor: preset.primaryDim.withOpacity(0.4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? preset.primaryDim.withOpacity(0.32)
+                          : colors.surfaceInset,
+                      borderRadius: AppSpacing.borderButton,
+                      border: Border.all(
+                        color: isSelected ? preset.primary : colors.border,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                preset.unitCode,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.telemetrySmall.copyWith(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSelected ? preset.primary : colors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _swatchDot(preset.primary),
+                                const SizedBox(width: 3),
+                                _swatchDot(preset.secondary),
+                                const SizedBox(width: 3),
+                                _swatchDot(preset.warning),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          preset.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmall.copyWith(
+                            fontSize: 9.5,
+                            color: isSelected ? colors.textPrimary : colors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _swatchDot(Color color) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    );
+  }
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+          Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted)),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.telemetrySmall.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.of(context).textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),

@@ -57,6 +57,7 @@ private:
     void setSampleRateClock(int sampleRate);
     void eventThreadLoop();
     size_t fillTransferBuffer(uint8_t* dest, size_t destSize);
+    size_t prepareIsoPackets(struct libusb_transfer* xfer);
 
     static void LIBUSB_CALL isoCallback(struct libusb_transfer* xfer);
     static void LIBUSB_CALL bulkCallback(struct libusb_transfer* xfer);
@@ -87,10 +88,14 @@ private:
     uint8_t hwBitResolution_;
     bool hwRequiresPadding_;
     size_t packetSize_;
+    int packetsPerSecond_;
+    int hwBytesPerFrame_;
+    uint64_t frameAccumulator_;
     std::chrono::steady_clock::time_point streamStartTime_;
 
     std::vector<struct libusb_transfer*> activeTransfers_;
     std::vector<std::vector<uint8_t>> transferBuffers_;
+    std::vector<uint8_t> conversionScratch_;
 };
 
 } // namespace tannhauser

@@ -36,7 +36,11 @@ class AudioPlaybackService : Service() {
         const val EXTRA_ARTIST = "extra_artist"
         const val EXTRA_IS_PLAYING = "extra_is_playing"
 
+        @Volatile
+        private var isServiceRunning: Boolean = false
+
         fun startService(context: Context, title: String, artist: String, isPlaying: Boolean) {
+            isServiceRunning = true
             val intent = Intent(context, AudioPlaybackService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_TITLE, title)
@@ -51,17 +55,28 @@ class AudioPlaybackService : Service() {
         }
 
         fun updatePlayback(context: Context, isPlaying: Boolean) {
+            if (!isServiceRunning) return
             val intent = Intent(context, AudioPlaybackService::class.java).apply {
                 action = if (isPlaying) ACTION_PLAY else ACTION_PAUSE
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Ignored updatePlayback while app is backgrounded: ${e.message}")
+            }
         }
 
         fun stopService(context: Context) {
+            if (!isServiceRunning) return
+            isServiceRunning = false
             val intent = Intent(context, AudioPlaybackService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Ignored stopService while app is backgrounded: ${e.message}")
+            }
         }
     }
 

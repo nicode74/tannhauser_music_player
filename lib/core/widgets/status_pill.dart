@@ -58,24 +58,25 @@ class StatusPill extends StatelessWidget {
     );
   }
 
-  Color get _color {
+  Color _resolveColor(BuildContext context) {
     if (customColor != null) return customColor!;
+    final colors = AppColors.of(context);
     switch (type) {
       case StatusPillType.bitPerfect:
-        return AppColors.acidGreen;
+        return colors.acidGreen;
       case StatusPillType.dspActive:
-        return AppColors.evaPurple;
+        return colors.evaPurple;
       case StatusPillType.noDac:
-        return AppColors.hazardOrange;
+        return colors.hazardOrange;
       case StatusPillType.standby:
       case StatusPillType.custom:
-        return AppColors.textSecondary;
+        return colors.textSecondary;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _color;
+    final color = _resolveColor(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

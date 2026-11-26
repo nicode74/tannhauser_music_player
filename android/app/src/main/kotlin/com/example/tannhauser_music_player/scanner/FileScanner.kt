@@ -21,6 +21,54 @@ class FileScanner {
             "recordings", "notifications", "ringtones", "alarms", "miui", "tencent",
             "coloros", "lost.dir", "cache"
         )
+
+        val COVER_FILENAMES = setOf(
+            "cover.jpg", "cover.jpeg", "cover.png",
+            "folder.jpg", "folder.jpeg", "folder.png",
+            "front.jpg", "front.png", "album.jpg", "album.png",
+            "artwork.jpg", "artwork.png"
+        )
+
+        fun findFolderCover(dir: File?): String? {
+            if (dir == null || !dir.isDirectory) return null
+            val files = try { dir.listFiles() } catch (_: Exception) { null } ?: return null
+            for (f in files) {
+                if (f.isFile && COVER_FILENAMES.contains(f.name.lowercase(Locale.ROOT))) {
+                    return f.absolutePath
+                }
+            }
+            return null
+        }
+
+        fun resolveOrExtractArtwork(
+            trackFile: File,
+            album: String,
+            artist: String,
+            folderCoverPath: String?,
+            artworkCacheDir: File?
+        ): String {
+            if (artworkCacheDir != null) {
+                if (!artworkCacheDir.exists()) artworkCacheDir.mkdirs()
+                val keySource = if (album.isNotBlank() && album != "Unknown Album") {
+                    "${artist}_$album"
+                } else {
+                    trackFile.absolutePath
+                }
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(keySource.toByteArray(Charsets.UTF_8))
+                val hexKey = digest.take(8).joinToString("") { "%02x".format(it) }
+                val cacheFile = File(artworkCacheDir, "art_$hexKey.img")
+                if (cacheFile.exists() && cacheFile.length() > 0) {
+                    return cacheFile.absolutePath
+                }
+                if (NativeAudioBridge.nativeExtractArtwork(trackFile.absolutePath, cacheFile.absolutePath)) {
+                    if (cacheFile.exists() && cacheFile.length() > 0) {
+                        return cacheFile.absolutePath
+                    }
+                }
+            }
+            return folderCoverPath ?: ""
+        }
     }
 
     private val isCancelled = AtomicBoolean(false)
@@ -35,6 +83,7 @@ class FileScanner {
         minSizeBytes: Long = 512L * 1024L,
         excludedFolders: Set<String> = emptySet(),
         additionalRoots: List<File> = emptyList(),
+        artworkCacheDir: File? = null,
         onProgress: (currentDir: String, scannedCount: Int, isDone: Boolean) -> Unit
     ): List<Map<String, Any>> {
         isCancelled.set(false)
@@ -80,6 +129,7 @@ class FileScanner {
 
         Log.i(TAG, "Starting filesystem scan across ${rootDirs.size} root directories")
         val dirQueue = ArrayDeque<File>()
+        val visitedDirs = HashSet<String>()
         for (root in rootDirs) {
             dirQueue.add(root)
         }
@@ -88,6 +138,14 @@ class FileScanner {
 
         while (dirQueue.isNotEmpty() && !isCancelled.get()) {
             val currentDir = dirQueue.removeFirst()
+            val canonical = try {
+                currentDir.canonicalPath
+            } catch (e: Exception) {
+                currentDir.absolutePath
+            }
+            if (!visitedDirs.add(canonical)) {
+                continue // Break cyclic symlinks / duplicate mount points
+            }
             val dirPath = currentDir.absolutePath
             val dirNameLower = currentDir.name.lowercase(Locale.ROOT)
 
@@ -119,6 +177,8 @@ class FileScanner {
                 continue
             }
 
+            val folderCoverPath = findFolderCover(currentDir)
+
             for (file in files) {
                 if (isCancelled.get()) break
 
@@ -144,6 +204,13 @@ class FileScanner {
                                     val bitDepth = (probe["bitDepth"] as? Number)?.toInt() ?: 16
                                     val bitRate = (probe["bitRate"] as? Number)?.toLong() ?: 0L
                                     val codec = (probe["codec"] as? String) ?: ext.uppercase(Locale.ROOT)
+                                    val artworkPath = resolveOrExtractArtwork(
+                                        trackFile = file,
+                                        album = album,
+                                        artist = artist,
+                                        folderCoverPath = folderCoverPath,
+                                        artworkCacheDir = artworkCacheDir
+                                    )
 
                                     val trackMap = mapOf<String, Any>(
                                         "path" to file.absolutePath,
@@ -156,7 +223,8 @@ class FileScanner {
                                         "sampleRate" to sampleRate,
                                         "bitDepth" to bitDepth,
                                         "bitRate" to bitRate,
-                                        "codec" to codec
+                                        "codec" to codec,
+                                        "artworkPath" to artworkPath
                                     )
                                     tracks.add(trackMap)
                                     scannedCount++

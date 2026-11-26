@@ -18,18 +18,22 @@ class LibraryCacheService {
   static const String _fileName = 'library_cache.json';
   static String? _cachedDocDir;
 
-  static Future<String> _getCacheFilePath() async {
+  static Future<String?> _getCacheFilePath() async {
     if (_cachedDocDir != null) {
       return '$_cachedDocDir/$_fileName';
     }
     final docDir = await NativeAudioService.instance.getAppDocumentsPath();
-    _cachedDocDir = docDir ?? '/data/user/0/com.example.tannhauser_music_player/files';
+    if (docDir == null || docDir.isEmpty) {
+      return null;
+    }
+    _cachedDocDir = docDir;
     return '$_cachedDocDir/$_fileName';
   }
 
   static Future<LibraryCacheData?> loadCache() async {
     try {
       final path = await _getCacheFilePath();
+      if (path == null) return null;
       final file = File(path);
       if (!await file.exists()) {
         return null;
@@ -64,6 +68,7 @@ class LibraryCacheService {
   }) async {
     try {
       final path = await _getCacheFilePath();
+      if (path == null) return false;
       final tempFile = File('$path.tmp');
       final targetFile = File(path);
 
@@ -92,6 +97,7 @@ class LibraryCacheService {
   static Future<bool> clearCache() async {
     try {
       final path = await _getCacheFilePath();
+      if (path == null) return false;
       final file = File(path);
       if (await file.exists()) {
         await file.delete();

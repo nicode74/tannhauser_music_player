@@ -86,7 +86,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('NOW PLAYING // UNIT-01'),
+            title: Text('NOW PLAYING // ${AppColors.of(context).unitCode}'),
             actions: [
               IconButton(
                 icon: Stack(
@@ -95,15 +95,15 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                     Icon(
                       Icons.snooze,
                       size: 20,
-                      color: _playerState.isSleepTimerActive ? AppColors.acidGreen : AppColors.textPrimary,
+                      color: _playerState.isSleepTimerActive ? AppColors.of(context).acidGreen : AppColors.of(context).textPrimary,
                     ),
                     if (_playerState.isSleepTimerActive)
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.acidGreen,
+                          color: AppColors.of(context).acidGreen,
                         ),
                       ),
                   ],
@@ -149,7 +149,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                       durationMs: playbackInfo?.totalDurationMs ?? 0,
                       isPlaying: isPlaying,
                       isUsbConnected: isUsbConnected,
-                      artworkPath: null,
+                      artworkPath: track?.artworkPath,
                       onSeekStart: () {
                         setState(() {
                           _isScrubbing = true;
@@ -198,7 +198,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
           children: [
             Icon(
               isUsbConnected ? Icons.usb : Icons.usb_off,
-              color: isUsbConnected ? AppColors.acidGreen : AppColors.hazardOrange,
+              color: isUsbConnected ? AppColors.of(context).acidGreen : AppColors.of(context).hazardOrange,
               size: 26,
             ),
             const SizedBox(width: AppSpacing.md),
@@ -209,14 +209,14 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                   Text(
                     isUsbConnected ? 'USB DAC CONNECTED' : 'NO DAC DETECTED',
                     style: AppTypography.statusPill.copyWith(
-                      color: isUsbConnected ? AppColors.acidGreen : AppColors.hazardOrange,
+                      color: isUsbConnected ? AppColors.of(context).acidGreen : AppColors.of(context).hazardOrange,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _playerState.usbDeviceName,
                     style: AppTypography.trackArtist.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.of(context).textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -280,9 +280,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
     return Container(
       padding: const EdgeInsets.only(left: AppSpacing.sm),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          left: BorderSide(color: AppColors.evaPurple, width: 3.5),
+          left: BorderSide(color: AppColors.of(context).evaPurple, width: 3.5),
         ),
       ),
       child: Column(
@@ -327,7 +327,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                         Icon(
                           Icons.tune,
                           size: 14,
-                          color: isPeqActive ? AppColors.acidGreen : AppColors.evaPurple,
+                          color: isPeqActive ? AppColors.of(context).acidGreen : AppColors.of(context).evaPurple,
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Flexible(
@@ -335,7 +335,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                             '64-BIT PARAMETRIC EQ',
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.telemetrySmall.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -347,16 +347,16 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isPeqActive ? AppColors.acidGreen.withOpacity(0.15) : AppColors.surface,
+                      color: isPeqActive ? AppColors.of(context).acidGreen.withOpacity(0.15) : AppColors.of(context).surface,
                       borderRadius: AppSpacing.borderBadge,
                       border: Border.all(
-                        color: isPeqActive ? AppColors.acidGreen : AppColors.border,
+                        color: isPeqActive ? AppColors.of(context).acidGreen : AppColors.of(context).border,
                       ),
                     ),
                     child: Text(
                       isPeqActive ? 'ACTIVE (DSP)' : 'BYPASS',
                       style: AppTypography.telemetrySmall.copyWith(
-                        color: isPeqActive ? AppColors.acidGreen : AppColors.textMuted,
+                        color: isPeqActive ? AppColors.of(context).acidGreen : AppColors.of(context).textMuted,
                         fontSize: 9,
                         fontWeight: isPeqActive ? FontWeight.bold : FontWeight.normal,
                       ),
@@ -371,12 +371,17 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                 height: 48,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: AppColors.bg,
+                  color: AppColors.of(context).bg,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border, width: 0.8),
+                  border: Border.all(color: AppColors.of(context).border, width: 0.8),
                 ),
-                child: CustomPaint(
-                  painter: _MiniPeqCurvePainter(peqState: _peqState),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _MiniPeqCurvePainter(
+                      peqState: _peqState,
+                      colors: AppColors.of(context),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -384,9 +389,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('20 Hz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.textMuted, fontSize: 9)),
-                  Text('1 kHz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.textMuted, fontSize: 9)),
-                  Text('20 kHz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.textMuted, fontSize: 9)),
+                  Text('20 Hz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textMuted, fontSize: 9)),
+                  Text('1 kHz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textMuted, fontSize: 9)),
+                  Text('20 kHz', style: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textMuted, fontSize: 9)),
                 ],
               ),
             ],
@@ -410,13 +415,13 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                 ? Icons.volume_off
                 : (vol < 0.5 ? Icons.volume_down : Icons.volume_up),
             size: 18,
-            color: vol > 0.0 ? AppColors.acidGreen : AppColors.textMuted,
+            color: vol > 0.0 ? AppColors.of(context).acidGreen : AppColors.of(context).textMuted,
           ),
           const SizedBox(width: AppSpacing.xs),
           Text(
             'VOL',
             style: AppTypography.telemetrySmall.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.of(context).textSecondary,
               fontWeight: FontWeight.bold,
               fontSize: 10,
             ),
@@ -424,9 +429,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: AppColors.acidGreen,
-                inactiveTrackColor: AppColors.surface,
-                thumbColor: AppColors.acidGreen,
+                activeTrackColor: AppColors.of(context).acidGreen,
+                inactiveTrackColor: AppColors.of(context).surface,
+                thumbColor: AppColors.of(context).acidGreen,
                 trackHeight: 3.0,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
@@ -444,14 +449,14 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: AppColors.bg,
+              color: AppColors.of(context).bg,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.border, width: 0.8),
+              border: Border.all(color: AppColors.of(context).border, width: 0.8),
             ),
             child: Text(
               '${volPercent.toString().padLeft(3)}%',
               style: AppTypography.codeSnippet.copyWith(
-                color: vol > 0.8 ? AppColors.evaPurple : AppColors.acidGreen,
+                color: vol > 0.8 ? AppColors.of(context).evaPurple : AppColors.of(context).acidGreen,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -489,7 +494,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
             icon: isPlaying ? Icons.pause : Icons.play_arrow,
             height: 52,
             isActive: isPlaying,
-            ledColor: AppColors.acidGreen,
+            ledColor: AppColors.of(context).acidGreen,
             padding: EdgeInsets.zero,
             onPressed: _playerState.togglePlayPause,
           ),
@@ -528,14 +533,15 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 
 class _MiniPeqCurvePainter extends CustomPainter {
   final PeqState peqState;
+  final dynamic colors;
 
-  _MiniPeqCurvePainter({required this.peqState});
+  _MiniPeqCurvePainter({required this.peqState, required this.colors}) : super(repaint: peqState);
 
   @override
   void paint(Canvas canvas, Size size) {
     final midY = size.height / 2;
     final gridPaint = Paint()
-      ..color = AppColors.border.withOpacity(0.5)
+      ..color = colors.border.withOpacity(0.5)
       ..strokeWidth = 1.0;
     canvas.drawLine(Offset(0, midY), Offset(size.width, midY), gridPaint);
 
@@ -558,7 +564,7 @@ class _MiniPeqCurvePainter extends CustomPainter {
     }
 
     final curvePaint = Paint()
-      ..color = peqState.isEnabled ? AppColors.acidGreen : AppColors.textMuted
+      ..color = peqState.isEnabled ? colors.acidGreen : colors.textMuted
       ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke;
 
@@ -566,5 +572,6 @@ class _MiniPeqCurvePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MiniPeqCurvePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _MiniPeqCurvePainter oldDelegate) =>
+      oldDelegate.peqState != peqState || oldDelegate.colors != colors;
 }

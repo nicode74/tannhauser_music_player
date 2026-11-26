@@ -160,14 +160,14 @@ class _FolderTreeViewState extends State<FolderTreeView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.of(context).surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusPanel),
-          side: const BorderSide(color: AppColors.borderStrong),
+          side: BorderSide(color: AppColors.of(context).borderStrong),
         ),
         title: Row(
           children: [
-            const Icon(Icons.folder_off, color: AppColors.hazardOrange, size: 20),
+            Icon(Icons.folder_off, color: AppColors.of(context).hazardOrange, size: 20),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -189,24 +189,24 @@ class _FolderTreeViewState extends State<FolderTreeView> {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Path: $folderPath',
-              style: AppTypography.codeSnippet.copyWith(fontSize: 11, color: AppColors.textMuted),
+              style: AppTypography.codeSnippet.copyWith(fontSize: 11, color: AppColors.of(context).textMuted),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Trek di dalam folder ini akan langsung dihapus dari antrean dan cache tanpa pemindaian ulang. Anda dapat memulihkannya nanti di Konsol Sistem.',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textSecondary),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('BATAL', style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+            child: Text('BATAL', style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.hazardOrange,
-              foregroundColor: AppColors.bg,
+              backgroundColor: AppColors.of(context).hazardOrange,
+              foregroundColor: AppColors.of(context).bg,
             ),
             onPressed: () {
               Navigator.of(ctx).pop();
@@ -216,7 +216,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Folder $folderName berhasil dikeluarkan dari library.'),
-                  backgroundColor: AppColors.surface,
+                  backgroundColor: AppColors.of(context).surface,
                 ),
               );
             },
@@ -234,7 +234,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.folder_open, size: 48, color: AppColors.textMuted),
+            Icon(Icons.folder_open, size: 48, color: AppColors.of(context).textMuted),
             const SizedBox(height: AppSpacing.md),
             Text('Library kosong. Mulai pemindaian penyimpanan.', style: AppTypography.body),
             const SizedBox(height: AppSpacing.md),
@@ -275,9 +275,9 @@ class _FolderTreeViewState extends State<FolderTreeView> {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceInset,
-            border: Border(bottom: BorderSide(color: AppColors.border, width: 1.0)),
+          decoration: BoxDecoration(
+            color: AppColors.of(context).surfaceInset,
+            border: Border(bottom: BorderSide(color: AppColors.of(context).border, width: 1.0)),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -290,16 +290,16 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                     child: Text(
                       _smartRoot?.name.toUpperCase() ?? 'ROOT',
                       style: AppTypography.statusPill.copyWith(
-                        color: isAtRoot ? AppColors.acidGreen : AppColors.evaPurple,
+                        color: isAtRoot ? AppColors.of(context).acidGreen : AppColors.of(context).evaPurple,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
                 for (int i = 0; i < breadcrumbSegments.length; i++) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Text('//', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text('//', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 11)),
                   ),
                   Builder(builder: (context) {
                     final segmentName = breadcrumbSegments[i];
@@ -316,7 +316,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                         child: Text(
                           segmentName.toUpperCase(),
                           style: AppTypography.statusPill.copyWith(
-                            color: isLast ? AppColors.acidGreen : AppColors.evaPurple,
+                            color: isLast ? AppColors.of(context).acidGreen : AppColors.of(context).evaPurple,
                             fontWeight: isLast ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
@@ -332,9 +332,9 @@ class _FolderTreeViewState extends State<FolderTreeView> {
         // 2. Action Deck (Folder Telemetry & PLAY FOLDER Button)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.border, width: 1.0)),
+          decoration: BoxDecoration(
+            color: AppColors.of(context).surface,
+            border: Border(bottom: BorderSide(color: AppColors.of(context).border, width: 1.0)),
           ),
           child: Row(
             children: [
@@ -342,7 +342,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                 child: Text(
                   '${subfolders.length} FOLDER // ${currentNode.totalTracksCount} TREK',
                   style: AppTypography.codeSnippet.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -359,7 +359,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                       SnackBar(
                         content: Text('Memutar folder: ${currentNode.name} (${allFolderTracks.length} trek)'),
                         duration: const Duration(seconds: 2),
-                        backgroundColor: AppColors.surface,
+                        backgroundColor: AppColors.of(context).surface,
                       ),
                     );
                   }
@@ -383,16 +383,16 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceInset,
+                      color: AppColors.of(context).surfaceInset,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: AppColors.of(context).border),
                     ),
-                    child: const Icon(Icons.arrow_upward, color: AppColors.acidGreen, size: 20),
+                    child: Icon(Icons.arrow_upward, color: AppColors.of(context).acidGreen, size: 20),
                   ),
                   title: Text(
                     '.. [ DIREKTORI SEBELUMNYA ]',
                     style: AppTypography.statusPill.copyWith(
-                      color: AppColors.acidGreen,
+                      color: AppColors.of(context).acidGreen,
                       fontSize: 12,
                     ),
                   ),
@@ -410,11 +410,11 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceInset,
+                      color: AppColors.of(context).surfaceInset,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: AppColors.of(context).border),
                     ),
-                    child: const Icon(Icons.folder, color: AppColors.evaPurple, size: 22),
+                    child: Icon(Icons.folder, color: AppColors.of(context).evaPurple, size: 22),
                   ),
                   title: Text(
                     sub.name,
@@ -429,7 +429,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.play_circle_outline, color: AppColors.acidGreen, size: 24),
+                        icon: Icon(Icons.play_circle_outline, color: AppColors.of(context).acidGreen, size: 24),
                         tooltip: 'Putar folder ini',
                         onPressed: () {
                           final fTracks = sub.getAllTracksRecursively();
@@ -438,7 +438,7 @@ class _FolderTreeViewState extends State<FolderTreeView> {
                           }
                         },
                       ),
-                      const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+                      Icon(Icons.chevron_right, color: AppColors.of(context).textMuted, size: 18),
                     ],
                   ),
                   onTap: () => _navigateTo(sub.path),

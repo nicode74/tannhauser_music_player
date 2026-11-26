@@ -21,7 +21,7 @@ class PeqEditorSheet extends StatefulWidget {
   static Future<void> show(BuildContext context, PeqState peqState) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -47,32 +47,32 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.of(context).surface,
           title: Text('IMPORT AUTOEQ / SQUIGLINK', style: AppTypography.header.copyWith(fontSize: 14)),
           content: TextField(
             controller: _importController,
             maxLines: 8,
-            style: AppTypography.telemetrySmall.copyWith(color: AppColors.textPrimary),
+            style: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textPrimary),
             decoration: InputDecoration(
               hintText: 'Tempel profil .txt EqualizerAPO / AutoEq di sini...\nContoh:\nPreamp: -4.5 dB\nFilter 1: ON PK Fc 62 Hz Gain -1.5 dB Q 1.41',
-              hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+              hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
               filled: true,
-              fillColor: AppColors.surfaceInset,
+              fillColor: AppColors.of(context).surfaceInset,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: AppColors.of(context).border),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+              child: Text('Batal', style: TextStyle(color: AppColors.of(context).textSecondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.evaPurple,
-                foregroundColor: AppColors.textPrimary,
+                backgroundColor: AppColors.of(context).evaPurple,
+                foregroundColor: AppColors.of(context).textPrimary,
               ),
               onPressed: () {
                 final success = _state.parseAutoEq(_importController.text);
@@ -80,7 +80,7 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(success ? 'Profil AutoEq berhasil diterapkan!' : 'Gagal membaca format AutoEq.'),
-                    backgroundColor: success ? AppColors.acidGreenDim : AppColors.errorRed,
+                    backgroundColor: success ? AppColors.of(context).acidGreenDim : AppColors.of(context).errorRed,
                   ),
                 );
               },
@@ -113,7 +113,7 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.borderStrong,
+                    color: AppColors.of(context).borderStrong,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -123,7 +123,7 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                   child: Row(
                     children: [
-                      const Icon(Icons.tune, color: AppColors.evaPurple, size: 18),
+                      Icon(Icons.tune, color: AppColors.of(context).evaPurple, size: 18),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
@@ -140,10 +140,10 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                       const SizedBox(width: AppSpacing.xs),
                       Switch(
                         value: _state.isEnabled,
-                        activeColor: AppColors.acidGreen,
-                        activeTrackColor: AppColors.acidGreenDim,
-                        inactiveThumbColor: AppColors.textMuted,
-                        inactiveTrackColor: AppColors.surfaceInset,
+                        activeColor: AppColors.of(context).acidGreen,
+                        activeTrackColor: AppColors.of(context).acidGreenDim,
+                        inactiveThumbColor: AppColors.of(context).textMuted,
+                        inactiveTrackColor: AppColors.of(context).surfaceInset,
                         onChanged: (val) => _state.setEnabled(val),
                       ),
                     ],
@@ -169,14 +169,14 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                             Text(
                               'PRE-AMP: ${_state.preAmpDb.toStringAsFixed(1)} dB',
                               style: AppTypography.telemetrySmall.copyWith(
-                                color: _state.preAmpDb < 0 ? AppColors.hazardOrange : AppColors.textPrimary,
+                                color: _state.preAmpDb < 0 ? AppColors.of(context).hazardOrange : AppColors.of(context).textPrimary,
                               ),
                             ),
                             Expanded(
                               child: SliderTheme(
                                 data: SliderTheme.of(context).copyWith(
-                                  activeTrackColor: AppColors.evaPurple,
-                                  thumbColor: AppColors.evaPurple,
+                                  activeTrackColor: AppColors.of(context).evaPurple,
+                                  thumbColor: AppColors.of(context).evaPurple,
                                   trackHeight: 2,
                                 ),
                                 child: Slider(
@@ -212,17 +212,17 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                                 label: Text(
                                   'B${idx + 1}',
                                   style: AppTypography.telemetrySmall.copyWith(
-                                    color: isSel ? AppColors.textPrimary : AppColors.textSecondary,
+                                    color: isSel ? AppColors.of(context).textPrimary : AppColors.of(context).textSecondary,
                                     fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
                                 selected: isSel,
-                                selectedColor: AppColors.evaPurple,
-                                backgroundColor: AppColors.surfaceInset,
+                                selectedColor: AppColors.of(context).evaPurple,
+                                backgroundColor: AppColors.of(context).surfaceInset,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(6),
                                   side: BorderSide(
-                                    color: isSel ? AppColors.evaPurple : AppColors.border,
+                                    color: isSel ? AppColors.of(context).evaPurple : AppColors.of(context).border,
                                   ),
                                 ),
                                 onSelected: (_) => _state.selectBand(idx),
@@ -248,7 +248,7 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                                 ),
                                 Switch(
                                   value: selectedBand.enabled,
-                                  activeColor: AppColors.evaPurple,
+                                  activeColor: AppColors.of(context).evaPurple,
                                   onChanged: _state.isEnabled
                                       ? (v) => _state.updateSelectedBand(enabled: v)
                                       : null,
@@ -260,13 +260,13 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
                             // Filter Type Dropdown
                             DropdownButtonFormField<PeqFilterType>(
                               value: selectedBand.type,
-                              dropdownColor: AppColors.surface,
+                              dropdownColor: AppColors.of(context).surface,
                               style: AppTypography.bodySmall,
                               decoration: InputDecoration(
                                 labelText: 'Filter Topology',
-                                labelStyle: AppTypography.telemetrySmall.copyWith(color: AppColors.textMuted),
+                                labelStyle: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textMuted),
                                 filled: true,
-                                fillColor: AppColors.surfaceInset,
+                                fillColor: AppColors.of(context).surfaceInset,
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
@@ -339,12 +339,12 @@ class _PeqEditorSheetState extends State<PeqEditorSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppTypography.telemetrySmall.copyWith(color: AppColors.textSecondary)),
+        Text(title, style: AppTypography.telemetrySmall.copyWith(color: AppColors.of(context).textSecondary)),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 2,
-            activeTrackColor: AppColors.acidGreen,
-            thumbColor: AppColors.acidGreen,
+            activeTrackColor: AppColors.of(context).acidGreen,
+            thumbColor: AppColors.of(context).acidGreen,
           ),
           child: Slider(
             value: value.clamp(min, max),

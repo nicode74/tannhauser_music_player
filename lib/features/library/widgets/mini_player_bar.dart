@@ -28,6 +28,7 @@ class MiniPlayerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final track = playerState.selectedTrack;
     if (track == null) return const SizedBox.shrink();
 
@@ -39,17 +40,17 @@ class MiniPlayerBar extends StatelessWidget {
     final ext = _formatExt(track.path);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: colors.surface,
         border: Border(
-          top: BorderSide(color: AppColors.border, width: 1.0),
+          top: BorderSide(color: colors.border, width: 1.0),
         ),
       ),
       child: SafeArea(
         top: false,
         child: InkWell(
           onTap: onTap,
-          splashColor: AppColors.evaPurpleDim.withOpacity(0.3),
+          splashColor: colors.evaPurpleDim.withOpacity(0.3),
           highlightColor: Colors.transparent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -58,9 +59,9 @@ class MiniPlayerBar extends StatelessWidget {
               LinearProgressIndicator(
                 value: progress,
                 minHeight: 2.0,
-                backgroundColor: AppColors.surfaceInset,
+                backgroundColor: colors.surfaceInset,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  isPlaying ? AppColors.acidGreen : AppColors.evaPurple,
+                  isPlaying ? colors.acidGreen : colors.evaPurple,
                 ),
               ),
 
@@ -72,7 +73,8 @@ class MiniPlayerBar extends StatelessWidget {
                 child: Row(
                   children: [
                     // Album Artwork thumbnail
-                    const AlbumArtwork(
+                    AlbumArtwork(
+                      imagePath: track.artworkPath,
                       size: 40,
                       borderRadius: AppSpacing.radiusBadge,
                     ),
@@ -96,15 +98,15 @@ class MiniPlayerBar extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surfaceInset,
+                                  color: colors.surfaceInset,
                                   borderRadius: BorderRadius.circular(3),
-                                  border: Border.all(color: AppColors.border),
+                                  border: Border.all(color: colors.border),
                                 ),
                                 child: Text(
                                   ext,
                                   style: AppTypography.telemetrySmall.copyWith(
                                     fontSize: 9,
-                                    color: AppColors.evaPurple,
+                                    color: colors.evaPurple,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -131,7 +133,7 @@ class MiniPlayerBar extends StatelessWidget {
                       height: 40,
                       icon: isPlaying ? Icons.pause : Icons.play_arrow,
                       isActive: isPlaying,
-                      ledColor: AppColors.acidGreen,
+                      ledColor: colors.acidGreen,
                       onPressed: playerState.togglePlayPause,
                     ),
                     const SizedBox(width: 6),

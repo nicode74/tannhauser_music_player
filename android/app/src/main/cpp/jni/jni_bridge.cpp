@@ -251,9 +251,52 @@ Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeProbeA
         return nullptr;
     }
 
+    auto sanitizeUtf8 = [](const std::string& input) -> std::string {
+        std::string out;
+        out.reserve(input.size());
+        size_t i = 0;
+        const size_t n = input.size();
+        while (i < n) {
+            unsigned char c = static_cast<unsigned char>(input[i]);
+            if (c == 0) {
+                i++; // Strip embedded NUL bytes (disallowed by JNI Modified UTF-8)
+            } else if (c < 0x80) {
+                out.push_back(static_cast<char>(c));
+                i++;
+            } else if ((c & 0xE0) == 0xC0 && i + 1 < n &&
+                       (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80 &&
+                       c >= 0xC2) {
+                out.push_back(input[i]);
+                out.push_back(input[i + 1]);
+                i += 2;
+            } else if ((c & 0xF0) == 0xE0 && i + 2 < n &&
+                       (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80 &&
+                       (static_cast<unsigned char>(input[i + 2]) & 0xC0) == 0x80) {
+                out.push_back(input[i]);
+                out.push_back(input[i + 1]);
+                out.push_back(input[i + 2]);
+                i += 3;
+            } else if ((c & 0xF8) == 0xF0 && i + 3 < n &&
+                       (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80 &&
+                       (static_cast<unsigned char>(input[i + 2]) & 0xC0) == 0x80 &&
+                       (static_cast<unsigned char>(input[i + 3]) & 0xC0) == 0x80) {
+                out.push_back(input[i]);
+                out.push_back(input[i + 1]);
+                out.push_back(input[i + 2]);
+                out.push_back(input[i + 3]);
+                i += 4;
+            } else {
+                out.push_back('?');
+                i++;
+            }
+        }
+        return out;
+    };
+
     auto putString = [&](const char* key, const std::string& val) {
+        std::string safeVal = sanitizeUtf8(val);
         jstring jKey = env->NewStringUTF(key);
-        jstring jVal = env->NewStringUTF(val.c_str());
+        jstring jVal = env->NewStringUTF(safeVal.c_str());
         env->CallObjectMethod(hashMap, mapPut, jKey, jVal);
         env->DeleteLocalRef(jKey);
         env->DeleteLocalRef(jVal);
@@ -305,6 +348,26 @@ Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeProbeA
 #else
     return nullptr;
 #endif
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_tannhauser_1music_1player_bridge_NativeAudioBridge_nativeExtractArtwork(
+        JNIEnv* env, jobject /* this */, jstring filePath, jstring outputPath) {
+    if (!filePath || !outputPath) return JNI_FALSE;
+    const char* nativeFile = env->GetStringUTFChars(filePath, nullptr);
+    const char* nativeOut = env->GetStringUTFChars(outputPath, nullptr);
+    if (!nativeFile || !nativeOut) {
+        if (nativeFile) env->ReleaseStringUTFChars(filePath, nativeFile);
+        if (nativeOut) env->ReleaseStringUTFChars(outputPath, nativeOut);
+        return JNI_FALSE;
+    }
+    std::string fStr(nativeFile);
+    std::string oStr(nativeOut);
+    env->ReleaseStringUTFChars(filePath, nativeFile);
+    env->ReleaseStringUTFChars(outputPath, nativeOut);
+
+    bool ok = AudioDecoder::extractArtwork(fStr, oStr);
+    return ok ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"

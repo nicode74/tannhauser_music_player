@@ -43,4 +43,5 @@ object NativeAudioBridge {
 
     // Fast Header Prober (FFmpeg without CodecContext allocation)
     external fun nativeProbeAudioFile(filePath: String): Map<String, Any>?
+    external fun nativeExtractArtwork(filePath: String, outputPath: String): Boolean
 }

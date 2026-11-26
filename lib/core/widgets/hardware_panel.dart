@@ -26,11 +26,12 @@ class HardwarePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final borderColor = hasHazardBorder
-        ? AppColors.hazardOrange
-        : (active ? AppColors.borderStrong : AppColors.border);
+        ? colors.hazardOrange
+        : (active ? colors.borderStrong : colors.border);
 
-    final backgroundColor = inset ? AppColors.surfaceInset : AppColors.surface;
+    final backgroundColor = inset ? colors.surfaceInset : colors.surface;
 
     Widget panel = Container(
       margin: margin,
@@ -50,7 +51,7 @@ class HardwarePanel extends StatelessWidget {
       panel = InkWell(
         onTap: onTap,
         borderRadius: AppSpacing.borderPanel,
-        splashColor: AppColors.evaPurpleDim.withOpacity(0.3),
+        splashColor: colors.evaPurpleDim.withOpacity(0.3),
         highlightColor: Colors.transparent,
         child: panel,
       );

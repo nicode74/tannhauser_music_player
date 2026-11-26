@@ -32,7 +32,7 @@ PeqEngine::PeqEngine() {
         calculateCoefficients(bandConfigs_[i], 44100, coeffBuffers_[0][i]);
         calculateCoefficients(bandConfigs_[i], 44100, coeffBuffers_[1][i]);
     }
-    resetStates();
+    clearStatesInternal();
 }
 
 void PeqEngine::setEnabled(bool enabled) {
@@ -87,6 +87,10 @@ void PeqEngine::setSampleRate(int sampleRate) {
 }
 
 void PeqEngine::resetStates() {
+    resetPending_.store(true, std::memory_order_release);
+}
+
+void PeqEngine::clearStatesInternal() {
     for (int i = 0; i < MAX_PEQ_BANDS; ++i) {
         filterStates_[i].z1_L = 0.0;
         filterStates_[i].z2_L = 0.0;
@@ -193,6 +197,9 @@ void PeqEngine::calculateCoefficients(const PeqBandConfig& config, int sampleRat
 }
 
 void PeqEngine::process(uint8_t* pcmData, size_t sizeBytes, const AudioFormat& format) {
+    if (resetPending_.exchange(false, std::memory_order_acquire)) {
+        clearStatesInternal();
+    }
     if (!enabled_.load(std::memory_order_relaxed) || sizeBytes == 0 || !pcmData) {
         return;
     }

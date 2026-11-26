@@ -251,7 +251,7 @@ bool AudioDecoder::seek(int64_t timestampMs) {
 }
 
 void AudioDecoder::close() {
-    if (!isOpen_) return;
+    bool wasOpen = isOpen_;
 
 #if HAS_FFMPEG_HEADERS
     if (frame_) {
@@ -275,7 +275,9 @@ void AudioDecoder::close() {
     isOpen_ = false;
     audioStreamIndex_ = -1;
     durationMs_ = 0;
-    LOGI("Audio decoder closed.");
+    if (wasOpen) {
+        LOGI("Audio decoder closed.");
+    }
 }
 
 AudioProbeResult AudioDecoder::probeAudioFile(const std::string& filePath) {
@@ -378,6 +380,42 @@ AudioProbeResult AudioDecoder::probeAudioFile(const std::string& filePath) {
     res.durationMs = 180000;
     res.codecName = "flac";
     return res;
+#endif
+}
+
+bool AudioDecoder::extractArtwork(const std::string& filePath, const std::string& outputPath) {
+    if (filePath.empty() || outputPath.empty()) return false;
+
+#if HAS_FFMPEG_HEADERS
+    AVFormatContext* fmtCtx = nullptr;
+    if (avformat_open_input(&fmtCtx, filePath.c_str(), nullptr, nullptr) < 0 || !fmtCtx) {
+        return false;
+    }
+
+    bool extracted = false;
+    for (unsigned int i = 0; i < fmtCtx->nb_streams; ++i) {
+        AVStream* stream = fmtCtx->streams[i];
+        if (stream && (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) &&
+            stream->attached_pic.data != nullptr && stream->attached_pic.size > 0) {
+            FILE* fp = fopen(outputPath.c_str(), "wb");
+            if (fp) {
+                size_t written = fwrite(stream->attached_pic.data, 1,
+                                        static_cast<size_t>(stream->attached_pic.size), fp);
+                fclose(fp);
+                if (written == static_cast<size_t>(stream->attached_pic.size)) {
+                    extracted = true;
+                } else {
+                    remove(outputPath.c_str());
+                }
+            }
+            break;
+        }
+    }
+
+    avformat_close_input(&fmtCtx);
+    return extracted;
+#else
+    return false;
 #endif
 }
 

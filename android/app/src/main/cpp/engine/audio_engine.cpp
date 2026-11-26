@@ -1,5 +1,6 @@
 #include "audio_engine.h"
 #include <chrono>
+#include <sys/resource.h>
 
 #if __has_include(<android/log.h>)
 #include <android/log.h>
@@ -25,8 +26,8 @@ AudioEngine::AudioEngine()
       seekBasePositionMs_(0), totalDurationMs_(0),
       decoder_(std::make_unique<AudioDecoder>()),
       usbDriver_(std::make_unique<UsbDriver>()),
-      ringBuffer_(std::make_shared<RingBuffer>(2 * 1024 * 1024)) {
-} // 2 MB buffer
+      ringBuffer_(std::make_shared<RingBuffer>(128 * 1024)) {
+} // 128 KB anti-stutter buffer (~85-720ms depending on sample rate)
 
 AudioEngine::~AudioEngine() { stop(); }
 
@@ -56,7 +57,13 @@ bool AudioEngine::play() {
   LOGI("AudioEngine::play - START");
   std::lock_guard<std::recursive_mutex> lock(engineMutex_);
   if (state_ == PlaybackState::PLAYING) {
-    LOGI("AudioEngine::play - Already playing");
+    if (usbDriver_->isConnected() && !usbDriver_->isStreaming() && decoder_->isOpen()) {
+      LOGI("AudioEngine::play - Recovering stalled USB stream");
+      usbDriver_->configureAudioStreaming(decoder_->getFormat());
+      usbDriver_->startStreaming(ringBuffer_);
+    } else {
+      LOGI("AudioEngine::play - Already playing");
+    }
     return true;
   }
 
@@ -240,7 +247,11 @@ bool AudioEngine::seek(int64_t positionMs) {
   bool wasPlaying = (state_ == PlaybackState::PLAYING);
 
   ringBuffer_->clear();
-  bool success = decoder_->seek(positionMs);
+  bool success = false;
+  {
+    std::lock_guard<std::mutex> decLock(decoderMutex_);
+    success = decoder_->seek(positionMs);
+  }
   if (success) {
     seekBasePositionMs_ = positionMs;
     usbDriver_->resetBytesTransferred();
@@ -289,7 +300,8 @@ PlaybackInfo AudioEngine::getPlaybackInfo() const {
 }
 
 void AudioEngine::decodeWorkerLoop() {
-  LOGI("AudioEngine: Decode worker loop entered.");
+  setpriority(PRIO_PROCESS, 0, -10);
+  LOGI("AudioEngine: Decode worker loop entered (elevated priority).");
   std::vector<uint8_t> pcmFrame;
 
   while (isRunning_ && state_ != PlaybackState::STOPPED) {
@@ -298,7 +310,12 @@ void AudioEngine::decodeWorkerLoop() {
       continue;
     }
 
-    if (!decoder_->decodeNextFrame(pcmFrame)) {
+    bool decoded = false;
+    {
+      std::lock_guard<std::mutex> decLock(decoderMutex_);
+      decoded = decoder_->decodeNextFrame(pcmFrame);
+    }
+    if (!decoded) {
       LOGI("AudioEngine: End of stream reached or decoding stopped.");
       // Tunggu hingga sisa data di buffer habis dikonsumsi oleh DAC
       while (isRunning_ && state_ == PlaybackState::PLAYING && ringBuffer_->availableRead() > 0) {

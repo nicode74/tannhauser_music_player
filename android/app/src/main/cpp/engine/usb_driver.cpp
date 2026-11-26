@@ -1,6 +1,7 @@
 #include "usb_driver.h"
 #include <chrono>
 #include <unistd.h>
+#include <sys/resource.h>
 #include <cerrno>
 #include <cstring>
 #include <algorithm>
@@ -48,7 +49,10 @@ UsbDriver::UsbDriver()
       hwSubslotSize_(2),
       hwBitResolution_(16),
       hwRequiresPadding_(false),
-      packetSize_(192) {}
+      packetSize_(192),
+      packetsPerSecond_(8000),
+      hwBytesPerFrame_(4),
+      frameAccumulator_(0) {}
 
 UsbDriver::~UsbDriver() {
     close();
@@ -150,8 +154,10 @@ bool UsbDriver::findAudioStreamingEndpoint(int /*targetSampleRate*/, int /*chann
     }
 
     bool found = false;
-    LOGI("UsbDriver::findAudioStreamingEndpoint - Scanning %d interface(s) for UAC Audio Control & Streaming...",
-         config->bNumInterfaces);
+    int bestScore = -1;
+    int targetBytes = (bitDepth >= 24) ? 4 : 2;
+    LOGI("UsbDriver::findAudioStreamingEndpoint - Scanning %d interface(s) for target bitDepth=%d...",
+         config->bNumInterfaces, bitDepth);
 
     for (int i = 0; i < config->bNumInterfaces; ++i) {
         const struct libusb_interface* iface = &config->interface[i];
@@ -166,15 +172,52 @@ bool UsbDriver::findAudioStreamingEndpoint(int /*targetSampleRate*/, int /*chann
                     LOGI("UsbDriver: Found Audio Control Interface: %d", audioControlInterfaceNumber_);
                 }
                 // Audio Streaming Subclass (0x02)
-                else if (alt->bInterfaceSubClass == 0x02 && !found) {
-                    // Cari alternate setting operasional yang memiliki endpoint (alt 0 umumnya bandwidth 0)
-                    if (alt->bNumEndpoints > 0) {
-                        for (int ep = 0; ep < alt->bNumEndpoints; ++ep) {
-                            const struct libusb_endpoint_descriptor* epDesc = &alt->endpoint[ep];
-                            // Endpoint OUT: Host to DAC
-                            if ((epDesc->bEndpointAddress & 0x80) == 0) {
-                                uint8_t xferType = epDesc->bmAttributes & 0x03;
-                                if (xferType == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || xferType == LIBUSB_TRANSFER_TYPE_BULK) {
+                else if (alt->bInterfaceSubClass == 0x02 && alt->bNumEndpoints > 0) {
+                    uint8_t candSubslot = (bitDepth > 16) ? 4 : 2;
+                    uint8_t candBitRes = bitDepth > 0 ? bitDepth : 16;
+                    uint8_t candChannels = 2;
+                    if (alt->extra && alt->extra_length > 0) {
+                        const uint8_t* p = alt->extra;
+                        int remaining = alt->extra_length;
+                        while (remaining >= 2) {
+                            uint8_t len = p[0];
+                            if (len < 2 || len > remaining) break;
+                            uint8_t descType = p[1];
+                            if (descType == 0x24 && len >= 6) { // CS_INTERFACE
+                                uint8_t subtype = p[2];
+                                if (subtype == 0x02) { // FORMAT_TYPE
+                                    if (alt->bInterfaceProtocol == 0x20) { // UAC2
+                                        candSubslot = p[4];
+                                        candBitRes = p[5];
+                                    } else { // UAC1
+                                        candChannels = p[4];
+                                        candSubslot = p[5];
+                                        candBitRes = p[6];
+                                    }
+                                    break;
+                                }
+                            }
+                            p += len;
+                            remaining -= len;
+                        }
+                    }
+                    if (candSubslot < 2 || candSubslot > 4) candSubslot = 2;
+
+                    for (int ep = 0; ep < alt->bNumEndpoints; ++ep) {
+                        const struct libusb_endpoint_descriptor* epDesc = &alt->endpoint[ep];
+                        // Endpoint OUT: Host to DAC
+                        if ((epDesc->bEndpointAddress & 0x80) == 0) {
+                            uint8_t xferType = epDesc->bmAttributes & 0x03;
+                            if (xferType == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || xferType == LIBUSB_TRANSFER_TYPE_BULK) {
+                                int score = 0;
+                                if (candSubslot == targetBytes) score += 100;
+                                else if (candSubslot > targetBytes) score += 50; // Upsizing preserves quality
+                                else score += 10; // Downsizing fallback
+                                if (xferType == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS) score += 20;
+                                if (candBitRes >= bitDepth) score += 5;
+
+                                if (!found || score > bestScore) {
+                                    bestScore = score;
                                     audioInterfaceNumber_ = alt->bInterfaceNumber;
                                     audioAltSetting_ = alt->bAlternateSetting;
                                     isocOutEndpoint_ = epDesc->bEndpointAddress;
@@ -182,45 +225,10 @@ bool UsbDriver::findAudioStreamingEndpoint(int /*targetSampleRate*/, int /*chann
                                     if (maxPacketSize_ == 0) maxPacketSize_ = 1024;
                                     endpointType_ = xferType;
                                     epInterval_ = (epDesc->bInterval > 0) ? epDesc->bInterval : 1;
+                                    hwSubslotSize_ = candSubslot;
+                                    hwBitResolution_ = candBitRes;
+                                    hwRequiresPadding_ = (hwSubslotSize_ != ((bitDepth > 0 ? bitDepth : 16) / 8));
                                     found = true;
-
-                                    // Parse Class-Specific Format Descriptor
-                                    hwSubslotSize_ = (bitDepth > 16) ? 4 : 2;
-                                    hwBitResolution_ = bitDepth > 0 ? bitDepth : 16;
-                                    if (alt->extra && alt->extra_length > 0) {
-                                        const uint8_t* p = alt->extra;
-                                        int remaining = alt->extra_length;
-                                        while (remaining >= 2) {
-                                            uint8_t len = p[0];
-                                            if (len < 2 || len > remaining) break;
-                                            uint8_t descType = p[1];
-                                            if (descType == 0x24 && len >= 6) { // CS_INTERFACE
-                                                uint8_t subtype = p[2];
-                                                if (subtype == 0x02) { // FORMAT_TYPE
-                                                    if (alt->bInterfaceProtocol == 0x20) { // UAC2
-                                                        hwSubslotSize_ = p[4];
-                                                        hwBitResolution_ = p[5];
-                                                    } else { // UAC1
-                                                        hwSubslotSize_ = p[5];
-                                                        hwBitResolution_ = p[6];
-                                                    }
-                                                    break;
-                                                }
-                                            }
-                                            p += len;
-                                            remaining -= len;
-                                        }
-                                    }
-                                    if (hwSubslotSize_ < 2 || hwSubslotSize_ > 4) {
-                                        hwSubslotSize_ = 2;
-                                    }
-                                    hwRequiresPadding_ = (hwSubslotSize_ == 4 && (bitDepth <= 16));
-
-                                    LOGI("UsbDriver: Found Audio Streaming Interface %d, AltSetting %d, Endpoint 0x%02X, MaxPacket %d, bInterval %d, Type=%s, hwSubslotSize=%d, hwBitRes=%d, reqPadding=%d",
-                                         audioInterfaceNumber_, audioAltSetting_, isocOutEndpoint_, maxPacketSize_,
-                                         epInterval_, xferType == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS ? "ISOCHRONOUS" : "BULK",
-                                         hwSubslotSize_, hwBitResolution_, hwRequiresPadding_ ? 1 : 0);
-                                    break;
                                 }
                             }
                         }
@@ -228,6 +236,13 @@ bool UsbDriver::findAudioStreamingEndpoint(int /*targetSampleRate*/, int /*chann
                 }
             }
         }
+    }
+
+    if (found) {
+        LOGI("UsbDriver: Selected Best AltSetting: Iface=%d, Alt=%d, EP=0x%02X, MaxPkt=%d, bInterval=%d, Type=%s, hwSubslot=%d, hwBitRes=%d",
+             audioInterfaceNumber_, audioAltSetting_, isocOutEndpoint_, maxPacketSize_,
+             epInterval_, endpointType_ == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS ? "ISOCHRONOUS" : "BULK",
+             hwSubslotSize_, hwBitResolution_);
     }
 
     libusb_free_config_descriptor(config);
@@ -363,36 +378,42 @@ bool UsbDriver::startStreaming(std::shared_ptr<RingBuffer> ringBuffer) {
     int sampleRate = currentFormat_.sampleRate > 0 ? currentFormat_.sampleRate : 44100;
 
     int hwBytesPerSample = (hwSubslotSize_ > 0) ? hwSubslotSize_ : bytesPerSample;
-    int hwBytesPerFrame = channels * hwBytesPerSample;
+    hwBytesPerFrame_ = channels * hwBytesPerSample;
+    frameAccumulator_ = 0;
 
     // Perhitungan Laju Paket USB Presisi (Microframe Aware):
     // Full-Speed (12Mbps): 1000 frame/detik (1ms interval).
     // High-Speed (480Mbps): 8000 microframe/detik (125us interval jika bInterval=1).
-    int packetsPerSecond = 1000;
+    packetsPerSecond_ = 1000;
     if (isHighSpeedDevice_ && endpointType_ == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS) {
         int shift = (epInterval_ >= 1 && epInterval_ <= 6) ? (epInterval_ - 1) : 0;
-        packetsPerSecond = 8000 >> shift;
+        packetsPerSecond_ = 8000 >> shift;
     }
-    if (packetsPerSecond <= 0) packetsPerSecond = 8000;
+    if (packetsPerSecond_ <= 0) packetsPerSecond_ = 8000;
 
-    // Hitung ukuran paket per isochronous microframe/frame berbasis format hardware DAC
-    size_t basePacket = (sampleRate * hwBytesPerFrame) / packetsPerSecond;
-    basePacket = (basePacket / hwBytesPerFrame) * hwBytesPerFrame;
-    if (basePacket == 0) basePacket = hwBytesPerFrame;
-    if (maxPacketSize_ > 0 && basePacket > maxPacketSize_) {
-        basePacket = (maxPacketSize_ / hwBytesPerFrame) * hwBytesPerFrame;
+    // Hitung ukuran paket maksimum per microframe/frame (dengan +1 frame headroom untuk fractional rates seperti 44.1kHz)
+    size_t minFramesPerPkt = static_cast<size_t>(sampleRate) / packetsPerSecond_;
+    size_t maxFramesPerPkt = minFramesPerPkt + ((sampleRate % packetsPerSecond_ != 0) ? 1 : 0);
+    if (maxFramesPerPkt == 0) maxFramesPerPkt = 1;
+    size_t maxPktBytes = maxFramesPerPkt * hwBytesPerFrame_;
+    if (maxPacketSize_ > 0 && maxPktBytes > maxPacketSize_) {
+        maxPktBytes = (maxPacketSize_ / hwBytesPerFrame_) * hwBytesPerFrame_;
+        if (maxPktBytes == 0) maxPktBytes = hwBytesPerFrame_;
     }
-    packetSize_ = basePacket;
+    packetSize_ = (minFramesPerPkt > 0 ? minFramesPerPkt : 1) * hwBytesPerFrame_;
 
-    const int numTransfers = 4;
-    const int packetsPerTransfer = (endpointType_ == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS) ? 8 : 1;
+    const int numTransfers = 8;
+    const int packetsPerTransfer = (endpointType_ == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS) ? 16 : 1;
     size_t transferBufferSize = (endpointType_ == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS)
-        ? (packetSize_ * packetsPerTransfer)
-        : (packetSize_ * 8);
+        ? (maxPktBytes * packetsPerTransfer)
+        : (packetSize_ * 16);
 
-    LOGI("UsbDriver::startStreaming - Pacing: HighSpeed=%d, pkts/sec=%d, packetSize=%zu, pkts/xfer=%d, xferBufSize=%zu, hwBytesPerSample=%d, reqPadding=%d",
-         isHighSpeedDevice_ ? 1 : 0, packetsPerSecond, packetSize_, packetsPerTransfer, transferBufferSize,
-         hwBytesPerSample, hwRequiresPadding_ ? 1 : 0);
+    // Pre-allocate scratch buffer to avoid heap allocations inside real-time USB callbacks
+    conversionScratch_.resize(transferBufferSize * 2);
+
+    LOGI("UsbDriver::startStreaming - Pacing: HighSpeed=%d, pkts/sec=%d, basePkt=%zu, maxPkt=%zu, pkts/xfer=%d, xferBufSize=%zu, srcBits=%d, hwSubslot=%d",
+         isHighSpeedDevice_ ? 1 : 0, packetsPerSecond_, packetSize_, maxPktBytes, packetsPerTransfer, transferBufferSize,
+         currentFormat_.bitDepth, hwBytesPerSample);
 
     // Jalankan dedicated background USB event loop
     eventThread_ = std::thread(&UsbDriver::eventThreadLoop, this);
@@ -410,9 +431,6 @@ bool UsbDriver::startStreaming(std::shared_ptr<RingBuffer> ringBuffer) {
                 continue;
             }
 
-            // Baca data awal dari ringBuffer (non-blocking)
-            fillTransferBuffer(transferBuffers_[t].data(), transferBufferSize);
-
             libusb_fill_iso_transfer(
                 xfer,
                 deviceHandle_,
@@ -425,7 +443,8 @@ bool UsbDriver::startStreaming(std::shared_ptr<RingBuffer> ringBuffer) {
                 1000
             );
 
-            libusb_set_iso_packet_lengths(xfer, static_cast<unsigned int>(packetSize_));
+            size_t exactBytes = prepareIsoPackets(xfer);
+            fillTransferBuffer(transferBuffers_[t].data(), exactBytes);
 
             activeTransfers_[t] = xfer;
             inFlightTransfers_++;
@@ -485,6 +504,9 @@ void LIBUSB_CALL UsbDriver::isoCallback(struct libusb_transfer* xfer) {
         }
         driver->bytesTransferred_ += successfulBytes;
     } else if (xfer->status == LIBUSB_TRANSFER_CANCELLED || xfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
+        if (driver->inFlightTransfers_.load() <= 0) {
+            driver->streaming_ = false;
+        }
         return;
     }
 
@@ -492,10 +514,9 @@ void LIBUSB_CALL UsbDriver::isoCallback(struct libusb_transfer* xfer) {
         return;
     }
 
-    // Isi ulang buffer dari ring buffer secara non-blocking dengan auto-padding 32-bit jika diperlukan
-    driver->fillTransferBuffer(reinterpret_cast<uint8_t*>(xfer->buffer), static_cast<size_t>(xfer->length));
-
-    libusb_set_iso_packet_lengths(xfer, static_cast<unsigned int>(driver->packetSize_));
+    // Hitung ukuran paket fraksional presisi dan isi ulang buffer secara non-blocking
+    size_t exactBytes = driver->prepareIsoPackets(xfer);
+    driver->fillTransferBuffer(reinterpret_cast<uint8_t*>(xfer->buffer), exactBytes);
 
     driver->inFlightTransfers_++;
     int res = libusb_submit_transfer(xfer);
@@ -503,6 +524,9 @@ void LIBUSB_CALL UsbDriver::isoCallback(struct libusb_transfer* xfer) {
         driver->inFlightTransfers_--;
         if (driver->streaming_.load()) {
             LOGE("UsbDriver::isoCallback - Resubmit failed: %s", libusb_strerror((libusb_error)res));
+            if (driver->inFlightTransfers_.load() <= 0) {
+                driver->streaming_ = false;
+            }
         }
     }
 }
@@ -524,10 +548,8 @@ void LIBUSB_CALL UsbDriver::bulkCallback(struct libusb_transfer* xfer) {
     }
 
     // Pacing rate limiting khusus untuk BULK transfer agar tidak melesat melebihi clock audio
-    int bytesPerSample = (driver->currentFormat_.bitDepth > 0 ? driver->currentFormat_.bitDepth : 16) / 8;
-    int channels = driver->currentFormat_.channels > 0 ? driver->currentFormat_.channels : 2;
     int sampleRate = driver->currentFormat_.sampleRate > 0 ? driver->currentFormat_.sampleRate : 44100;
-    int bytesPerSec = sampleRate * channels * bytesPerSample;
+    int bytesPerSec = sampleRate * driver->hwBytesPerFrame_;
 
     if (bytesPerSec > 0) {
         auto now = std::chrono::steady_clock::now();
@@ -551,37 +573,101 @@ void LIBUSB_CALL UsbDriver::bulkCallback(struct libusb_transfer* xfer) {
     }
 }
 
+size_t UsbDriver::prepareIsoPackets(struct libusb_transfer* xfer) {
+    if (!xfer || xfer->num_iso_packets <= 0) return 0;
+
+    int sampleRate = currentFormat_.sampleRate > 0 ? currentFormat_.sampleRate : 44100;
+    int pps = packetsPerSecond_ > 0 ? packetsPerSecond_ : 8000;
+    int bpf = hwBytesPerFrame_ > 0 ? hwBytesPerFrame_ : 4;
+    uint32_t maxAligned = (maxPacketSize_ > 0) ? ((maxPacketSize_ / bpf) * bpf) : 1024;
+    if (maxAligned == 0) maxAligned = bpf;
+
+    size_t totalLen = 0;
+    for (int i = 0; i < xfer->num_iso_packets; ++i) {
+        frameAccumulator_ += static_cast<uint64_t>(sampleRate);
+        uint32_t frames = static_cast<uint32_t>(frameAccumulator_ / pps);
+        frameAccumulator_ %= static_cast<uint64_t>(pps);
+        if (frames == 0) frames = 1;
+
+        uint32_t pktLen = frames * static_cast<uint32_t>(bpf);
+        if (pktLen > maxAligned) pktLen = maxAligned;
+
+        xfer->iso_packet_desc[i].length = pktLen;
+        totalLen += pktLen;
+    }
+    xfer->length = static_cast<int>(totalLen);
+    return totalLen;
+}
+
 size_t UsbDriver::fillTransferBuffer(uint8_t* dest, size_t destSize) {
-    if (!ringBuffer_) {
-        std::memset(dest, 0, destSize);
+    if (!ringBuffer_ || !dest || destSize == 0) {
+        if (dest && destSize > 0) std::memset(dest, 0, destSize);
         return 0;
     }
 
-    if (hwRequiresPadding_ && hwSubslotSize_ == 4 && currentFormat_.bitDepth == 16) {
-        // Hardware endpoint requires 32-bit subslots (4 bytes per sample), but ring buffer contains 16-bit PCM (2 bytes per sample)
-        size_t numSamples = destSize / sizeof(int32_t);
-        size_t sourceBytesNeeded = numSamples * sizeof(int16_t);
-        std::vector<int16_t> tempBuffer(numSamples);
-        size_t readBytes = ringBuffer_->readAvailable(reinterpret_cast<uint8_t*>(tempBuffer.data()), sourceBytesNeeded);
-        size_t samplesRead = readBytes / sizeof(int16_t);
+    int srcBytes = (currentFormat_.bitDepth > 0 ? currentFormat_.bitDepth : 16) / 8;
+    if (srcBytes < 2 || srcBytes > 4) srcBytes = 2;
+    int dstBytes = (hwSubslotSize_ >= 2 && hwSubslotSize_ <= 4) ? hwSubslotSize_ : srcBytes;
 
-        int32_t* dest32 = reinterpret_cast<int32_t*>(dest);
-        for (size_t i = 0; i < samplesRead; ++i) {
-            // Standard PCM in 32-bit container: Left-aligned MSB
-            dest32[i] = static_cast<int32_t>(tempBuffer[i]) << 16;
+    if (srcBytes == dstBytes) {
+        size_t readBytes = ringBuffer_->readAvailable(dest, destSize);
+        if (readBytes < destSize) {
+            std::memset(dest + readBytes, 0, destSize - readBytes);
         }
-        for (size_t i = samplesRead; i < numSamples; ++i) {
-            dest32[i] = 0;
-        }
-        return samplesRead * sizeof(int32_t);
+        return readBytes;
     }
 
-    // Direct read without subslot conversion
-    size_t readBytes = ringBuffer_->readAvailable(dest, destSize);
-    if (readBytes < destSize) {
-        std::memset(dest + readBytes, 0, destSize - readBytes);
+    size_t numSamples = destSize / static_cast<size_t>(dstBytes);
+    size_t sourceBytesNeeded = numSamples * static_cast<size_t>(srcBytes);
+    if (conversionScratch_.size() < sourceBytesNeeded) {
+        conversionScratch_.resize(sourceBytesNeeded);
     }
-    return readBytes;
+    size_t readBytes = ringBuffer_->readAvailable(conversionScratch_.data(), sourceBytesNeeded);
+    size_t samplesRead = readBytes / static_cast<size_t>(srcBytes);
+
+    for (size_t i = 0; i < samplesRead; ++i) {
+        int32_t sample32 = 0;
+        const uint8_t* s = conversionScratch_.data() + i * srcBytes;
+        if (srcBytes == 2) {
+            int16_t s16 = static_cast<int16_t>(s[0] | (s[1] << 8));
+            sample32 = static_cast<int32_t>(s16) << 16;
+        } else if (srcBytes == 3) {
+            sample32 = static_cast<int32_t>(
+                (static_cast<uint32_t>(s[0]) << 8) |
+                (static_cast<uint32_t>(s[1]) << 16) |
+                (static_cast<uint32_t>(static_cast<int8_t>(s[2])) << 24)
+            );
+        } else { // srcBytes == 4
+            sample32 = static_cast<int32_t>(
+                static_cast<uint32_t>(s[0]) |
+                (static_cast<uint32_t>(s[1]) << 8) |
+                (static_cast<uint32_t>(s[2]) << 16) |
+                (static_cast<uint32_t>(s[3]) << 24)
+            );
+        }
+
+        uint8_t* d = dest + i * dstBytes;
+        if (dstBytes == 2) {
+            int16_t out16 = static_cast<int16_t>(sample32 >> 16);
+            d[0] = static_cast<uint8_t>(out16 & 0xFF);
+            d[1] = static_cast<uint8_t>((out16 >> 8) & 0xFF);
+        } else if (dstBytes == 3) {
+            d[0] = static_cast<uint8_t>((sample32 >> 8) & 0xFF);
+            d[1] = static_cast<uint8_t>((sample32 >> 16) & 0xFF);
+            d[2] = static_cast<uint8_t>((sample32 >> 24) & 0xFF);
+        } else { // dstBytes == 4
+            d[0] = static_cast<uint8_t>(sample32 & 0xFF);
+            d[1] = static_cast<uint8_t>((sample32 >> 8) & 0xFF);
+            d[2] = static_cast<uint8_t>((sample32 >> 16) & 0xFF);
+            d[3] = static_cast<uint8_t>((sample32 >> 24) & 0xFF);
+        }
+    }
+
+    size_t writtenBytes = samplesRead * static_cast<size_t>(dstBytes);
+    if (writtenBytes < destSize) {
+        std::memset(dest + writtenBytes, 0, destSize - writtenBytes);
+    }
+    return writtenBytes;
 }
 
 void UsbDriver::stopStreaming() {
@@ -644,7 +730,8 @@ void UsbDriver::close() {
 }
 
 void UsbDriver::eventThreadLoop() {
-    LOGI("UsbDriver::eventThreadLoop - Entered");
+    setpriority(PRIO_PROCESS, 0, -16);
+    LOGI("UsbDriver::eventThreadLoop - Entered (high priority)");
 #if HAS_LIBUSB_HEADER
     while (streaming_.load() || inFlightTransfers_.load() > 0) {
         struct timeval tv;

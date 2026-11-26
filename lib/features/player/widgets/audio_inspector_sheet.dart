@@ -23,7 +23,7 @@ class AudioInspectorSheet extends StatelessWidget {
   static Future<void> show(BuildContext context, PlayerState playerState, {PeqState? peqState}) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -67,7 +67,7 @@ class AudioInspectorSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.borderStrong,
+                color: AppColors.of(context).borderStrong,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -77,7 +77,7 @@ class AudioInspectorSheet extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
               child: Row(
                 children: [
-                  const Icon(Icons.analytics_outlined, color: AppColors.acidGreen, size: 20),
+                  Icon(Icons.analytics_outlined, color: AppColors.of(context).acidGreen, size: 20),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
@@ -110,25 +110,25 @@ class AudioInspectorSheet extends StatelessWidget {
                         Text(
                           'STREAM TELEMETRY // REALTIME',
                           style: AppTypography.telemetrySmall.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        _buildRow('Audio Format', ext),
-                        _buildRow(
+                        _buildRow(context, 'Audio Format', ext),
+                        _buildRow(context, 
                           'Kategori Audio',
                           isDsd
                               ? 'DSD (Direct Stream Digital)'
                               : (isLossless ? 'Hi-Res Lossless Audio' : 'Standard Audio (Lossy)'),
                         ),
-                        _buildRow(
+                        _buildRow(context, 
                           'Sample Rate',
                           sampleRate > 0 ? '$sampleRate Hz (${(sampleRate / 1000).toStringAsFixed(1)} kHz)' : '-- Hz',
                         ),
-                        _buildRow('Bit Depth', bitDepth > 0 ? '$bitDepth-bit Linear PCM' : '-- bit'),
-                        _buildRow('Channels', channels == 2 ? 'Stereo (Left / Right)' : '$channels Channels'),
-                        _buildRow(
+                        _buildRow(context, 'Bit Depth', bitDepth > 0 ? '$bitDepth-bit Linear PCM' : '-- bit'),
+                        _buildRow(context, 'Channels', channels == 2 ? 'Stereo (Left / Right)' : '$channels Channels'),
+                        _buildRow(context, 
                           'Prosesor Audio',
                           isPeq
                               ? '64-bit RBJ Biquad TDF-II Cascade (Active DSP)'
@@ -148,15 +148,15 @@ class AudioInspectorSheet extends StatelessWidget {
                         Text(
                           'HARDWARE TRANSPORT PATH',
                           style: AppTypography.telemetrySmall.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        _buildRow('Perangkat Output', playerState.usbDeviceName),
-                        _buildRow('Protokol USB', isUsb ? 'USB Audio Class 2.0 (UAC2)' : 'No USB DAC Attached'),
-                        _buildRow('Android AudioFlinger', 'BYPASS TOTAL (libusb File Descriptor)'),
-                        _buildRow('Isochronous Endpoint', isUsb ? 'Asynchronous Isochronous Stream' : 'Idle'),
+                        _buildRow(context, 'Perangkat Output', playerState.usbDeviceName),
+                        _buildRow(context, 'Protokol USB', isUsb ? 'USB Audio Class 2.0 (UAC2)' : 'No USB DAC Attached'),
+                        _buildRow(context, 'Android AudioFlinger', 'BYPASS TOTAL (libusb File Descriptor)'),
+                        _buildRow(context, 'Isochronous Endpoint', isUsb ? 'Asynchronous Isochronous Stream' : 'Idle'),
                       ],
                     ),
                   ),
@@ -173,27 +173,27 @@ class AudioInspectorSheet extends StatelessWidget {
                           Text(
                             'RINCIAN FILE LOKAL',
                             style: AppTypography.telemetrySmall.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          _buildRow('Judul', track.title),
-                          _buildRow('Artis', track.artist),
-                          _buildRow('Album', track.album),
-                          if (track.formattedSize.isNotEmpty) _buildRow('Ukuran File', track.formattedSize),
-                          _buildRow('Folder', track.folderName),
+                          _buildRow(context, 'Judul', track.title),
+                          _buildRow(context, 'Artis', track.artist),
+                          _buildRow(context, 'Album', track.album),
+                          if (track.formattedSize.isNotEmpty) _buildRow(context, 'Ukuran File', track.formattedSize),
+                          _buildRow(context, 'Folder', track.folderName),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             'Path Lengkap:',
-                            style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
                           ),
                           const SizedBox(height: 2),
                           SelectableText(
                             track.path,
                             style: AppTypography.telemetrySmall.copyWith(
                               fontSize: 9.5,
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                             ),
                           ),
                         ],
@@ -210,13 +210,13 @@ class AudioInspectorSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(String label, String value) {
+  Widget _buildRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+          Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted)),
           const SizedBox(width: AppSpacing.sm),
           Flexible(
             child: Text(
@@ -224,7 +224,7 @@ class AudioInspectorSheet extends StatelessWidget {
               textAlign: TextAlign.end,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.telemetrySmall.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.of(context).textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),

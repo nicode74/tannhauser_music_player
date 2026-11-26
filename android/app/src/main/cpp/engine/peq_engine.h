@@ -65,8 +65,10 @@ public:
 
 private:
     void calculateCoefficients(const PeqBandConfig& config, int sampleRate, BiquadCoeffs& outCoeffs);
+    void clearStatesInternal();
 
     std::atomic<bool> enabled_{false};
+    std::atomic<bool> resetPending_{false};
     std::atomic<double> preampDb_{0.0};
     std::atomic<double> preampLinear_{1.0};
     std::atomic<int> currentSampleRate_{44100};

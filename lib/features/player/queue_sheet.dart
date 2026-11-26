@@ -19,7 +19,7 @@ class QueueSheet extends StatelessWidget {
   static Future<void> show(BuildContext context, PlayerState playerState) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -64,7 +64,7 @@ class QueueSheet extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.borderStrong,
+                    color: AppColors.of(context).borderStrong,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -77,7 +77,7 @@ class QueueSheet extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.queue_music, color: AppColors.evaPurple, size: 18),
+                      Icon(Icons.queue_music, color: AppColors.of(context).evaPurple, size: 18),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
@@ -94,7 +94,7 @@ class QueueSheet extends StatelessWidget {
                           IconButton(
                             icon: Icon(
                               Icons.shuffle,
-                              color: playerState.isShuffle ? AppColors.evaPurple : AppColors.textSecondary,
+                              color: playerState.isShuffle ? AppColors.of(context).evaPurple : AppColors.of(context).textSecondary,
                               size: 20,
                             ),
                             visualDensity: VisualDensity.compact,
@@ -105,8 +105,8 @@ class QueueSheet extends StatelessWidget {
                             icon: Icon(
                               _repeatIcon(playerState.repeatMode),
                               color: playerState.repeatMode != PlaybackRepeatMode.off
-                                  ? AppColors.acidGreen
-                                  : AppColors.textSecondary,
+                                  ? AppColors.of(context).acidGreen
+                                  : AppColors.of(context).textSecondary,
                               size: 20,
                             ),
                             visualDensity: VisualDensity.compact,
@@ -114,7 +114,7 @@ class QueueSheet extends StatelessWidget {
                             onPressed: playerState.toggleRepeatMode,
                           ),
                           IconButton(
-                            icon: const Icon(Icons.clear_all, color: AppColors.textSecondary, size: 20),
+                            icon: Icon(Icons.clear_all, color: AppColors.of(context).textSecondary, size: 20),
                             visualDensity: VisualDensity.compact,
                             tooltip: 'Kosongkan Antrean',
                             onPressed: queue.isNotEmpty ? playerState.clearQueue : null,
@@ -133,11 +133,11 @@ class QueueSheet extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.queue_music, size: 48, color: AppColors.textMuted),
+                              Icon(Icons.queue_music, size: 48, color: AppColors.of(context).textMuted),
                               const SizedBox(height: AppSpacing.md),
                               Text(
                                 'Antrean putar kosong.',
-                                style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                                style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
                               ),
                             ],
                           ),
@@ -154,10 +154,10 @@ class QueueSheet extends StatelessWidget {
                               key: ValueKey('${track.path}_$index'),
                               direction: DismissDirection.endToStart,
                               background: Container(
-                                color: AppColors.errorRed.withOpacity(0.3),
+                                color: AppColors.of(context).errorRed.withOpacity(0.3),
                                 alignment: Alignment.centerRight,
                                 padding: const EdgeInsets.only(right: 20),
-                                child: const Icon(Icons.delete, color: AppColors.errorRed),
+                                child: Icon(Icons.delete, color: AppColors.of(context).errorRed),
                               ),
                               onDismissed: (_) {
                                 playerState.removeFromQueue(index);
@@ -179,11 +179,11 @@ class QueueSheet extends StatelessWidget {
                                   // Drag handle reorder icon
                                   ReorderableDragStartListener(
                                     index: index,
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                                       child: Icon(
                                         Icons.drag_handle,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.of(context).textMuted,
                                         size: 20,
                                       ),
                                     ),

@@ -70,7 +70,7 @@ private:
 
     std::atomic<PlaybackState> state_;
     std::atomic<bool> isRunning_;
-    std::atomic<float> masterVolume_{1.0f};
+    std::atomic<float> masterVolume_{0.75f};
     mutable std::atomic<int64_t> currentPositionMs_;
     std::atomic<int64_t> seekBasePositionMs_;
     std::atomic<int64_t> totalDurationMs_;
@@ -84,6 +84,7 @@ private:
 
     std::thread decodeThread_;
     mutable std::recursive_mutex engineMutex_;
+    mutable std::mutex decoderMutex_;
 
     PositionCallback positionCallback_;
     StateCallback stateCallback_;

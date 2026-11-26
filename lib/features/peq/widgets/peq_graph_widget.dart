@@ -19,13 +19,14 @@ class PeqGraphWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       height: height,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surfaceInset,
+        color: colors.surfaceInset,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: colors.border, width: 1.0),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -51,7 +52,7 @@ class PeqGraphWidget extends StatelessWidget {
             peqState.updateSelectedBand(fc: freq, gainDb: gain);
           },
           child: CustomPaint(
-            painter: _PeqGraphPainter(peqState: peqState),
+            painter: _PeqGraphPainter(peqState: peqState, colors: colors),
           ),
         ),
       ),
@@ -61,8 +62,9 @@ class PeqGraphWidget extends StatelessWidget {
 
 class _PeqGraphPainter extends CustomPainter {
   final PeqState peqState;
+  final dynamic colors;
 
-  _PeqGraphPainter({required this.peqState});
+  _PeqGraphPainter({required this.peqState, required this.colors});
 
   double _freqToX(double f, double width) {
     const minFreq = 20.0;
@@ -85,7 +87,7 @@ class _PeqGraphPainter extends CustomPainter {
 
     // 1. Grid Lines (Horizontal dB lines)
     final gridPaint = Paint()
-      ..color = AppColors.border.withOpacity(0.4)
+      ..color = colors.border.withOpacity(0.4)
       ..strokeWidth = 0.8;
 
     final dBLines = [-12.0, -6.0, 0.0, 6.0, 12.0];
@@ -93,7 +95,7 @@ class _PeqGraphPainter extends CustomPainter {
       final y = _gainToY(db, h);
       final isZero = db == 0.0;
       final linePaint = Paint()
-        ..color = isZero ? AppColors.borderStrong : AppColors.border.withOpacity(0.3)
+        ..color = isZero ? colors.borderStrong : colors.border.withOpacity(0.3)
         ..strokeWidth = isZero ? 1.2 : 0.8;
       canvas.drawLine(Offset(0, y), Offset(w, y), linePaint);
     }
@@ -121,7 +123,7 @@ class _PeqGraphPainter extends CustomPainter {
     }
 
     final curvePaint = Paint()
-      ..color = peqState.isEnabled ? AppColors.acidGreen : AppColors.textMuted
+      ..color = peqState.isEnabled ? colors.acidGreen : colors.textMuted
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
     canvas.drawPath(curvePath, curvePaint);
@@ -135,12 +137,12 @@ class _PeqGraphPainter extends CustomPainter {
         final isSelected = i == peqState.selectedBandIndex;
         final x = _freqToX(b.fc, w);
         final y = _gainToY(b.gainDb, h);
-        final nodeColor = isSelected ? AppColors.acidGreen : AppColors.evaPurple;
+        final nodeColor = isSelected ? colors.acidGreen : colors.evaPurple;
 
         // Node Glow
         if (isSelected) {
           final glowPaint = Paint()
-            ..color = AppColors.acidGreen.withOpacity(0.3)
+            ..color = colors.acidGreen.withOpacity(0.3)
             ..style = PaintingStyle.fill;
           canvas.drawCircle(Offset(x, y), 8.0, glowPaint);
         }

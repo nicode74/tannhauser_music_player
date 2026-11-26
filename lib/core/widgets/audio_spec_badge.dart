@@ -23,6 +23,7 @@ class AudioSpecBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final sampleRateStr = sampleRate > 0
         ? '${(sampleRate / 1000).toStringAsFixed(1)} kHz'
         : '-- kHz';
@@ -33,15 +34,15 @@ class AudioSpecBadge extends StatelessWidget {
         ? '$codecStr • $sampleRateStr / $bitDepthStr • $bitRateKbps kbps'
         : '$codecStr • $sampleRateStr / $bitDepthStr';
 
-    final accentColor = isDspActive ? AppColors.evaPurple : AppColors.acidGreen;
+    final accentColor = isDspActive ? colors.evaPurple : colors.acidGreen;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.surfaceInset,
+        color: colors.surfaceInset,
         borderRadius: AppSpacing.borderBadge,
         border: Border.all(
-          color: AppColors.border,
+          color: colors.border,
           width: 1.0,
         ),
       ),
@@ -62,7 +63,7 @@ class AudioSpecBadge extends StatelessWidget {
               text,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.telemetrySmall.copyWith(
-                color: AppColors.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
           ),

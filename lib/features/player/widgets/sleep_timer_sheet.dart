@@ -19,7 +19,7 @@ class SleepTimerSheet extends StatelessWidget {
   static Future<void> show(BuildContext context, PlayerState playerState) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -50,7 +50,7 @@ class SleepTimerSheet extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.borderStrong,
+                  color: AppColors.of(context).borderStrong,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -60,7 +60,7 @@ class SleepTimerSheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 child: Row(
                   children: [
-                    const Icon(Icons.snooze, color: AppColors.evaPurple, size: 20),
+                    Icon(Icons.snooze, color: AppColors.of(context).evaPurple, size: 20),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
@@ -89,9 +89,9 @@ class SleepTimerSheet extends StatelessWidget {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.acidGreen,
+                          color: AppColors.of(context).acidGreen,
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -102,7 +102,7 @@ class SleepTimerSheet extends StatelessWidget {
                             Text(
                               'WAKTU TERSISA SEBELUM PAUSE',
                               style: AppTypography.telemetrySmall.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.of(context).textSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -110,7 +110,7 @@ class SleepTimerSheet extends StatelessWidget {
                             Text(
                               playerState.sleepTimeFormatted,
                               style: AppTypography.telemetryLarge.copyWith(
-                                color: AppColors.acidGreen,
+                                color: AppColors.of(context).acidGreen,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 18,
                               ),
@@ -200,7 +200,7 @@ class SleepTimerSheet extends StatelessWidget {
         height: 44,
         label: label,
         isActive: isSelected,
-        ledColor: AppColors.acidGreen,
+        ledColor: AppColors.of(context).acidGreen,
         onPressed: onTap,
       ),
     );

@@ -79,19 +79,30 @@ class CollectionDetailPage extends StatelessWidget {
                       Row(
                         children: [
                           if (isAlbum)
-                            const AlbumArtwork(size: 64, borderRadius: 8)
+                            AlbumArtwork(
+                              size: 64,
+                              borderRadius: 8,
+                              imagePath: tracks.isNotEmpty
+                                  ? tracks
+                                      .firstWhere(
+                                        (t) => t.artworkPath.isNotEmpty,
+                                        orElse: () => tracks.first,
+                                      )
+                                      .artworkPath
+                                  : null,
+                            )
                           else
                             Container(
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceInset,
+                                color: AppColors.of(context).surfaceInset,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.border),
+                                border: Border.all(color: AppColors.of(context).border),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.folder,
-                                color: AppColors.evaPurple,
+                                color: AppColors.of(context).evaPurple,
                                 size: 36,
                               ),
                             ),
@@ -117,7 +128,7 @@ class CollectionDetailPage extends StatelessWidget {
                                 Text(
                                   '${tracks.length} trek • ${_formatTotalDuration(totalDurationMs)}',
                                   style: AppTypography.telemetrySmall.copyWith(
-                                    color: AppColors.evaPurple,
+                                    color: AppColors.of(context).evaPurple,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -137,7 +148,7 @@ class CollectionDetailPage extends StatelessWidget {
                               icon: Icons.play_arrow,
                               label: 'PUTAR SEMUA',
                               isActive: true,
-                              ledColor: AppColors.acidGreen,
+                              ledColor: AppColors.of(context).acidGreen,
                               onPressed: _playAll,
                             ),
                           ),
@@ -163,7 +174,7 @@ class CollectionDetailPage extends StatelessWidget {
                     ? Center(
                         child: Text(
                           'Folder ini kosong.',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
                         ),
                       )
                     : ListView.builder(

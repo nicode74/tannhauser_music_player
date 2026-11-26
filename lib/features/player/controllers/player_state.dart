@@ -37,11 +37,23 @@ class PlayerState extends ChangeNotifier {
   bool _sleepAtTrackEnd = false;
 
   // Master Digital Volume (0.0 to 1.0)
-  double _volume = 1.0;
+  double _volume = 0.75;
   StreamSubscription? _volumeSubscription;
+
+  // Custom Scan Folder Paths (Hiby-style folder selection)
+  List<String> _selectedScanPaths = [];
+
+  // Cached grouping maps to avoid O(N) recomputation on every UI frame
+  Map<String, List<AudioTrack>>? _tracksByFolderCache;
+  Map<String, List<AudioTrack>>? _tracksByAlbumCache;
+
+  // Granular notifiers so LibraryPage does not rebuild every 500ms position tick
+  final ValueNotifier<int> libraryRevision = ValueNotifier<int>(0);
+  final ValueNotifier<bool> usbConnectedNotifier = ValueNotifier<bool>(false);
 
   // Getters
   double get volume => _volume;
+  List<String> get selectedScanPaths => List.unmodifiable(_selectedScanPaths);
   List<AudioTrack> get tracks => _tracks;
   List<AudioTrack> get queue => _queue;
   PlaybackRepeatMode get repeatMode => _repeatMode;
@@ -168,21 +180,31 @@ class PlayerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _invalidateLibraryCaches() {
+    _tracksByFolderCache = null;
+    _tracksByAlbumCache = null;
+    libraryRevision.value++;
+  }
+
   Map<String, List<AudioTrack>> get tracksByFolder {
+    if (_tracksByFolderCache != null) return _tracksByFolderCache!;
     final Map<String, List<AudioTrack>> map = {};
     for (final track in _tracks) {
       final key = track.folderPath.isNotEmpty ? track.folderPath : 'Unknown Folder';
       map.putIfAbsent(key, () => []).add(track);
     }
+    _tracksByFolderCache = map;
     return map;
   }
 
   Map<String, List<AudioTrack>> get tracksByAlbum {
+    if (_tracksByAlbumCache != null) return _tracksByAlbumCache!;
     final Map<String, List<AudioTrack>> map = {};
     for (final track in _tracks) {
       final key = track.album.isNotEmpty ? track.album : 'Unknown Album';
       map.putIfAbsent(key, () => []).add(track);
     }
+    _tracksByAlbumCache = map;
     return map;
   }
 
@@ -220,6 +242,7 @@ class PlayerState extends ChangeNotifier {
       if (_selectedTrack == null && _tracks.isNotEmpty) {
         _selectedTrack = _tracks.first;
       }
+      _invalidateLibraryCaches();
       notifyListeners();
     } else {
       // First boot or empty cache -> trigger initial scan
@@ -230,6 +253,7 @@ class PlayerState extends ChangeNotifier {
   void _initUsbListener() {
     _usbSubscription = _audioService.usbEvents.listen((event) {
       _isUsbConnected = event['connected'] as bool? ?? false;
+      usbConnectedNotifier.value = _isUsbConnected;
       _usbDeviceName = (event['deviceName'] as String?) ??
           (_isUsbConnected ? 'USB Audio Device' : 'No USB DAC Detected');
       notifyListeners();
@@ -242,11 +266,41 @@ class PlayerState extends ChangeNotifier {
     _pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
       final info = await _audioService.getPlaybackInfo();
       if (info != null) {
+        final prev = _playbackInfo;
+        final changed = prev == null ||
+            prev.state != info.state ||
+            prev.positionMs != info.positionMs ||
+            prev.sampleRate != info.sampleRate ||
+            prev.bitDepth != info.bitDepth ||
+            _isUsbConnected != info.isUsbConnected;
         _playbackInfo = info;
         _isUsbConnected = info.isUsbConnected;
-        notifyListeners();
+        usbConnectedNotifier.value = _isUsbConnected;
+        if (changed) {
+          notifyListeners();
+        }
       }
     });
+  }
+
+  Future<List<Map<String, dynamic>>> getStorageRoots() =>
+      _audioService.getStorageRoots();
+
+  Future<List<Map<String, dynamic>>> listSubdirectories(String path) =>
+      _audioService.listSubdirectories(path);
+
+  void toggleScanPath(String path) {
+    if (_selectedScanPaths.contains(path)) {
+      _selectedScanPaths.remove(path);
+    } else {
+      _selectedScanPaths.add(path);
+    }
+    notifyListeners();
+  }
+
+  void clearScanPaths() {
+    _selectedScanPaths.clear();
+    notifyListeners();
   }
 
   Future<bool> scanStorage({bool rescan = false, List<String>? customPaths}) async {
@@ -269,8 +323,11 @@ class PlayerState extends ChangeNotifier {
         notifyListeners();
       });
 
+      final effectivePaths = customPaths ??
+          (_selectedScanPaths.isNotEmpty ? _selectedScanPaths : null);
+
       final scanned = await _audioService.startStorageScan(
-        customPaths: customPaths,
+        customPaths: effectivePaths,
         excludedFolders: _excludedFolders,
       );
 
@@ -283,6 +340,7 @@ class PlayerState extends ChangeNotifier {
         if (_selectedTrack == null && scanned.isNotEmpty) {
           _selectedTrack = scanned.first;
         }
+        _invalidateLibraryCaches();
         await LibraryCacheService.saveCache(
           tracks: _tracks,
           excludedFolders: _excludedFolders,
@@ -363,6 +421,7 @@ class PlayerState extends ChangeNotifier {
       if (_selectedTrack == null && scannedTracks.isNotEmpty) {
         _selectedTrack = scannedTracks.first;
       }
+      _invalidateLibraryCaches();
       await LibraryCacheService.saveCache(
         tracks: _tracks,
         excludedFolders: _excludedFolders,
@@ -379,7 +438,23 @@ class PlayerState extends ChangeNotifier {
   Future<bool> loadFile(AudioTrack track) async {
     _selectedTrack = track;
     _isLoadingFile = true;
+    libraryRevision.value++;
     notifyListeners();
+
+    if (track.artworkPath.isEmpty) {
+      _audioService
+          .extractTrackArtwork(
+            track.path,
+            album: track.album,
+            artist: track.artist,
+          )
+          .then((artPath) {
+        if (artPath.isNotEmpty && _selectedTrack?.path == track.path) {
+          _selectedTrack = _selectedTrack!.copyWith(artworkPath: artPath);
+          notifyListeners();
+        }
+      });
+    }
 
     try {
       final success = await _audioService.loadFile(
@@ -488,6 +563,8 @@ class PlayerState extends ChangeNotifier {
     _scanSubscription?.cancel();
     _volumeSubscription?.cancel();
     _sleepTimer?.cancel();
+    libraryRevision.dispose();
+    usbConnectedNotifier.dispose();
     super.dispose();
   }
 }

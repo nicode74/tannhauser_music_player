@@ -64,13 +64,12 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.playerState,
-      builder: (context, _) {
+    return ValueListenableBuilder<int>(
+      valueListenable: widget.playerState.libraryRevision,
+      builder: (context, _, __) {
         final allTracks = _filterTracks(widget.playerState.tracks);
         final folders = widget.playerState.tracksByFolder;
         final albums = widget.playerState.tracksByAlbum;
-        final isUsb = widget.playerState.isUsbConnected;
 
         return Scaffold(
           appBar: AppBar(
@@ -81,7 +80,7 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
                     style: AppTypography.body,
                     decoration: InputDecoration(
                       hintText: 'Cari judul, artis, atau album...',
-                      hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+                      hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
                       border: InputBorder.none,
                     ),
                     onChanged: (val) {
@@ -90,14 +89,13 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
                       });
                     },
                   )
-                : const Text('TANNHÄUSER // UNIT-01'),
+                : Text('TANNHÄUSER // ${AppColors.of(context).unitCode}'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.radar, size: 20, color: AppColors.acidGreen),
+                icon: Icon(Icons.radar, size: 20, color: AppColors.of(context).acidGreen),
                 tooltip: 'Pindai Penyimpanan',
                 onPressed: () {
                   ScanTerminalSheet.show(context, widget.playerState);
-                  widget.playerState.scanStorage(rescan: true);
                 },
               ),
               IconButton(
@@ -116,13 +114,18 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
                 child: Center(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => SystemConsoleSheet.show(context, widget.playerState),
-                    child: StatusPill(
-                      label: isUsb ? 'USB DAC' : 'NO DAC',
-                      type: isUsb ? StatusPillType.bitPerfect : StatusPillType.noDac,
-                    ),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: widget.playerState.usbConnectedNotifier,
+                    builder: (context, isUsb, _) {
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () => SystemConsoleSheet.show(context, widget.playerState),
+                        child: StatusPill(
+                          label: isUsb ? 'USB DAC' : 'NO DAC',
+                          type: isUsb ? StatusPillType.bitPerfect : StatusPillType.noDac,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -130,17 +133,17 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(44),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: AppColors.border, width: 1.0),
+                    bottom: BorderSide(color: AppColors.of(context).border, width: 1.0),
                   ),
                 ),
                 child: TabBar(
                   controller: _tabController,
-                  indicatorColor: AppColors.evaPurple,
+                  indicatorColor: AppColors.of(context).evaPurple,
                   indicatorWeight: 2.5,
-                  labelColor: AppColors.evaPurple,
-                  unselectedLabelColor: AppColors.textSecondary,
+                  labelColor: AppColors.of(context).evaPurple,
+                  unselectedLabelColor: AppColors.of(context).textSecondary,
                   labelStyle: AppTypography.statusPill.copyWith(fontSize: 10),
                   labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                   tabs: [
@@ -169,9 +172,14 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
               _buildAlbumsList(albums),
             ],
           ),
-          bottomNavigationBar: MiniPlayerBar(
-            playerState: widget.playerState,
-            onTap: widget.onOpenNowPlaying,
+          bottomNavigationBar: ListenableBuilder(
+            listenable: widget.playerState,
+            builder: (context, _) {
+              return MiniPlayerBar(
+                playerState: widget.playerState,
+                onTap: widget.onOpenNowPlaying,
+              );
+            },
           ),
         );
       },
@@ -180,8 +188,8 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
 
   Widget _buildTracksList(List<AudioTrack> tracks) {
     if (widget.playerState.isScanning) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.evaPurple),
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.of(context).evaPurple),
       );
     }
 
@@ -190,7 +198,7 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.music_off, size: 48, color: AppColors.textMuted),
+            Icon(Icons.music_off, size: 48, color: AppColors.of(context).textMuted),
             const SizedBox(height: AppSpacing.md),
             Text(
               _searchQuery.isNotEmpty
@@ -200,8 +208,8 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
             ),
             const SizedBox(height: AppSpacing.md),
             TextButton.icon(
-              icon: const Icon(Icons.sync, color: AppColors.evaPurple, size: 18),
-              label: const Text('Pindai Ulang', style: TextStyle(color: AppColors.evaPurple)),
+              icon: Icon(Icons.sync, color: AppColors.of(context).evaPurple, size: 18),
+              label: Text('Pindai Ulang', style: TextStyle(color: AppColors.of(context).evaPurple)),
               onPressed: widget.playerState.scanLocalMusic,
             ),
           ],
@@ -249,11 +257,11 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.surfaceInset,
+              color: AppColors.of(context).surfaceInset,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.of(context).border),
             ),
-            child: const Icon(Icons.folder, color: AppColors.evaPurple, size: 22),
+            child: Icon(Icons.folder, color: AppColors.of(context).evaPurple, size: 22),
           ),
           title: Text(
             folderName,
@@ -262,15 +270,15 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
           ),
           subtitle: Text(
             folderPath,
-            style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.of(context).textMuted),
             overflow: TextOverflow.ellipsis,
           ),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.surfaceInset,
+              color: AppColors.of(context).surfaceInset,
               borderRadius: AppSpacing.borderBadge,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.of(context).border),
             ),
             child: Text(
               '${folderTracks.length} tracks',
@@ -317,9 +325,15 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
         final albumName = entry.key;
         final albumTracks = entry.value;
         final artist = albumTracks.first.artist;
+        final coverPath = albumTracks
+            .firstWhere((t) => t.artworkPath.isNotEmpty, orElse: () => albumTracks.first)
+            .artworkPath;
 
         return ListTile(
-          leading: const AlbumArtwork(size: 42),
+          leading: AlbumArtwork(
+            size: 42,
+            imagePath: coverPath,
+          ),
           title: Text(
             albumName,
             style: AppTypography.trackTitle.copyWith(fontSize: 14),
@@ -333,9 +347,9 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.surfaceInset,
+              color: AppColors.of(context).surfaceInset,
               borderRadius: AppSpacing.borderBadge,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.of(context).border),
             ),
             child: Text(
               '${albumTracks.length} tracks',

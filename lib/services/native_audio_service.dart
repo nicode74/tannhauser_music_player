@@ -19,6 +19,7 @@ class AudioTrack {
   final int bitRate;
   final int trackNumber;
   final String codec;
+  final String artworkPath;
 
   AudioTrack({
     required this.path,
@@ -32,7 +33,25 @@ class AudioTrack {
     this.bitRate = 0,
     this.trackNumber = 0,
     this.codec = '',
+    this.artworkPath = '',
   });
+
+  AudioTrack copyWith({String? artworkPath}) {
+    return AudioTrack(
+      path: path,
+      title: title,
+      artist: artist,
+      album: album,
+      durationMs: durationMs,
+      sizeBytes: sizeBytes,
+      sampleRate: sampleRate,
+      bitDepth: bitDepth,
+      bitRate: bitRate,
+      trackNumber: trackNumber,
+      codec: codec,
+      artworkPath: artworkPath ?? this.artworkPath,
+    );
+  }
 
   factory AudioTrack.fromMap(Map<dynamic, dynamic> map) {
     return AudioTrack(
@@ -47,6 +66,7 @@ class AudioTrack {
       bitRate: (map['bitRate'] as num?)?.toInt() ?? 0,
       trackNumber: (map['trackNumber'] as num?)?.toInt() ?? 0,
       codec: map['codec'] as String? ?? '',
+      artworkPath: map['artworkPath'] as String? ?? '',
     );
   }
 
@@ -63,6 +83,7 @@ class AudioTrack {
       'bitRate': bitRate,
       'trackNumber': trackNumber,
       'codec': codec,
+      'artworkPath': artworkPath,
     };
   }
 
@@ -214,6 +235,34 @@ class NativeAudioService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getStorageRoots() async {
+    try {
+      final List<dynamic>? list =
+          await _commandChannel.invokeMethod<List<dynamic>>('getStorageRoots');
+      if (list != null) {
+        return list
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> listSubdirectories(String path) async {
+    try {
+      final List<dynamic>? list = await _commandChannel.invokeMethod<List<dynamic>>(
+        'listSubdirectories',
+        {'path': path},
+      );
+      if (list != null) {
+        return list
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   Future<List<AudioTrack>> startStorageScan({
     List<String>? customPaths,
     int minDurationMs = 30000,
@@ -234,6 +283,26 @@ class NativeAudioService {
       }
     } catch (_) {}
     return [];
+  }
+
+  Future<String> extractTrackArtwork(
+    String filePath, {
+    String album = '',
+    String artist = '',
+  }) async {
+    try {
+      final String? path = await _commandChannel.invokeMethod<String>(
+        'extractTrackArtwork',
+        {
+          'filePath': filePath,
+          'album': album,
+          'artist': artist,
+        },
+      );
+      return path ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<bool> stopStorageScan() async {
@@ -433,6 +502,17 @@ class NativeAudioService {
       return result ?? 1.0;
     } catch (_) {
       return 1.0;
+    }
+  }
+
+  Future<bool> setLauncherIcon(String paletteId) async {
+    try {
+      final bool? result = await _commandChannel.invokeMethod<bool>('setLauncherIcon', {
+        'paletteId': paletteId,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
     }
   }
 }

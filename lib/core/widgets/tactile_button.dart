@@ -29,24 +29,25 @@ class TactileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeLedColor = ledColor ?? (isActive ? AppColors.acidGreen : AppColors.textMuted);
+    final colors = AppColors.of(context);
+    final activeLedColor = ledColor ?? (isActive ? colors.acidGreen : colors.textMuted);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
         borderRadius: AppSpacing.borderButton,
-        splashColor: AppColors.evaPurpleDim.withOpacity(0.4),
+        splashColor: colors.evaPurpleDim.withOpacity(0.4),
         highlightColor: Colors.transparent,
         child: Container(
           width: width,
           height: height,
           padding: padding,
           decoration: BoxDecoration(
-            color: AppColors.surfaceInset,
+            color: colors.surfaceInset,
             borderRadius: AppSpacing.borderButton,
             border: Border.all(
-              color: isActive ? AppColors.borderStrong : AppColors.border,
+              color: isActive ? colors.borderStrong : colors.border,
               width: 1.0,
             ),
           ),
@@ -83,7 +84,7 @@ class TactileButton extends StatelessWidget {
                     Icon(
                       icon,
                       size: 16,
-                      color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                      color: isActive ? colors.textPrimary : colors.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Flexible(
@@ -93,7 +94,7 @@ class TactileButton extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                          color: isActive ? colors.textPrimary : colors.textSecondary,
                         ),
                       ),
                     ),
@@ -103,7 +104,7 @@ class TactileButton extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                  color: isActive ? colors.textPrimary : colors.textSecondary,
                 )
               else if (label != null)
                 Text(
@@ -112,7 +113,7 @@ class TactileButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                    color: isActive ? colors.textPrimary : colors.textSecondary,
                   ),
                 ),
             ],

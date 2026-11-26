@@ -21,6 +21,7 @@ class AlbumArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final hasValidFile = imagePath != null &&
         imagePath!.isNotEmpty &&
         File(imagePath!).existsSync();
@@ -36,10 +37,10 @@ class AlbumArtwork extends StatelessWidget {
         height: size,
         fit: BoxFit.cover,
         cacheWidth: (size * 2).toInt(),
-        errorBuilder: (_, __, ___) => _buildFallback(),
+        errorBuilder: (_, __, ___) => _buildFallback(colors),
       );
     } else {
-      imageWidget = _buildFallback();
+      imageWidget = _buildFallback(colors);
     }
 
     return Container(
@@ -49,7 +50,7 @@ class AlbumArtwork extends StatelessWidget {
         shape: shape,
         borderRadius: radius,
         border: Border.all(
-          color: AppColors.border,
+          color: colors.border,
           width: 1.0,
         ),
       ),
@@ -58,14 +59,14 @@ class AlbumArtwork extends StatelessWidget {
     );
   }
 
-  Widget _buildFallback() {
+  Widget _buildFallback(dynamic colors) {
     return Container(
-      color: AppColors.surfaceInset,
+      color: colors.surfaceInset,
       child: Center(
         child: Icon(
           Icons.graphic_eq,
           size: size * 0.5,
-          color: AppColors.evaPurple,
+          color: colors.evaPurple,
         ),
       ),
     );

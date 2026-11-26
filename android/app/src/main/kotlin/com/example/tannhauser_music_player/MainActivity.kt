@@ -34,11 +34,14 @@ class MainActivity : FlutterActivity() {
     private var scanEventSink: EventChannel.EventSink? = null
     private var fileScanner: FileScanner? = null
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var pausedByAudioFocus: Boolean = false
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var currentTrackTitle: String = "Tannhäuser Audio"
     private var currentTrackArtist: String = "Bit-Perfect Mode"
     private var commandMethodChannel: MethodChannel? = null
-    private var currentVolume: Float = 1.0f
+    private var currentVolume: Float = 0.75f
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -129,47 +132,53 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "getStorageRoots" -> {
+                    val roots = discoverStorageRoots().map { dir ->
+                        val isPrimary = dir.absolutePath == android.os.Environment.getExternalStorageDirectory()?.absolutePath
+                        mapOf(
+                            "name" to if (isPrimary) "Internal Storage" else "SD Card (${dir.name})",
+                            "path" to dir.absolutePath,
+                            "isRemovable" to !isPrimary
+                        )
+                    }
+                    result.success(roots)
+                }
+                "listSubdirectories" -> {
+                    val targetPath = call.argument<String>("path")
+                    if (targetPath.isNullOrEmpty()) {
+                        result.success(emptyList<Map<String, Any>>())
+                    } else {
+                        ioExecutor.execute {
+                            try {
+                                val dir = File(targetPath)
+                                val children = dir.listFiles()
+                                    ?.filter { it.isDirectory && !it.name.startsWith(".") }
+                                    ?.sortedBy { it.name.lowercase() }
+                                    ?.map { sub ->
+                                        val hasSub = sub.listFiles()?.any { it.isDirectory && !it.name.startsWith(".") } ?: false
+                                        mapOf(
+                                            "name" to sub.name,
+                                            "path" to sub.absolutePath,
+                                            "hasSubdirs" to hasSub
+                                        )
+                                    } ?: emptyList()
+                                runOnUiThread { result.success(children) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.success(emptyList<Map<String, Any>>()) }
+                            }
+                        }
+                    }
+                }
                 "startStorageScan" -> {
                     val customPaths = call.argument<List<String>>("customPaths")
                     val minDurationMs = (call.argument<Number>("minDurationMs") ?: 30000L).toLong()
                     val minSizeBytes = (call.argument<Number>("minSizeBytes") ?: (512L * 1024L)).toLong()
                     val excludedList = call.argument<List<String>>("excludedFolders") ?: emptyList()
                     val excludedSet = excludedList.toSet()
+                    val additionalRoots = discoverStorageRoots()
+                    val artworkCacheDir = File(applicationContext.cacheDir, "artwork")
 
-                    val additionalRoots = mutableListOf<File>()
-                    try {
-                        val extDirs = ContextCompat.getExternalFilesDirs(applicationContext, null)
-                        for (d in extDirs) {
-                            if (d != null) {
-                                val rootPath = d.absolutePath.substringBefore("/Android/data")
-                                val rootFile = File(rootPath)
-                                if (rootFile.exists() && rootFile.isDirectory) {
-                                    additionalRoots.add(rootFile)
-                                    Log.i(TAG, "Discovered external storage volume: $rootPath")
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error getting external files dirs: ${e.message}")
-                    }
-
-                    try {
-                        val sm = getSystemService(android.content.Context.STORAGE_SERVICE) as? android.os.storage.StorageManager
-                        sm?.storageVolumes?.forEach { vol ->
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                vol.directory?.let { dir ->
-                                    if (dir.exists() && dir.isDirectory && !additionalRoots.contains(dir)) {
-                                        additionalRoots.add(dir)
-                                        Log.i(TAG, "Discovered StorageManager volume: ${dir.absolutePath}")
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error querying StorageManager: ${e.message}")
-                    }
-
-                    backgroundExecutor.execute {
+                    ioExecutor.execute {
                         try {
                             val scanner = FileScanner()
                             fileScanner = scanner
@@ -178,7 +187,8 @@ class MainActivity : FlutterActivity() {
                                 minDurationMs = minDurationMs,
                                 minSizeBytes = minSizeBytes,
                                 excludedFolders = excludedSet,
-                                additionalRoots = additionalRoots
+                                additionalRoots = additionalRoots,
+                                artworkCacheDir = artworkCacheDir
                             ) { currentDir, scannedCount, isDone ->
                                 runOnUiThread {
                                     scanEventSink?.success(
@@ -204,6 +214,32 @@ class MainActivity : FlutterActivity() {
                 "stopStorageScan" -> {
                     fileScanner?.cancel()
                     result.success(true)
+                }
+                "extractTrackArtwork" -> {
+                    val filePath = call.argument<String>("filePath")
+                    val album = call.argument<String>("album") ?: ""
+                    val artist = call.argument<String>("artist") ?: ""
+                    if (filePath.isNullOrEmpty()) {
+                        result.success("")
+                    } else {
+                        ioExecutor.execute {
+                            try {
+                                val trackFile = File(filePath)
+                                val folderCover = FileScanner.findFolderCover(trackFile.parentFile)
+                                val cacheDir = File(applicationContext.cacheDir, "artwork")
+                                val artPath = FileScanner.resolveOrExtractArtwork(
+                                    trackFile = trackFile,
+                                    album = album,
+                                    artist = artist,
+                                    folderCoverPath = folderCover,
+                                    artworkCacheDir = cacheDir
+                                )
+                                runOnUiThread { result.success(artPath) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.success("") }
+                            }
+                        }
+                    }
                 }
                 "checkPermissions" -> {
                     result.success(hasAudioPermission())
@@ -280,6 +316,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "play" -> {
+                    requestAudioFocus()
                     backgroundExecutor.execute {
                         try {
                             val success = NativeAudioBridge.nativePlay()
@@ -319,6 +356,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "resume" -> {
+                    requestAudioFocus()
                     backgroundExecutor.execute {
                         try {
                             val success = NativeAudioBridge.nativeResume()
@@ -461,9 +499,79 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "setLauncherIcon" -> {
+                    val paletteId = call.argument<String>("paletteId") ?: "eva_01"
+                    backgroundExecutor.execute {
+                        val ok = switchLauncherIcon(paletteId)
+                        runOnUiThread { result.success(ok) }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun switchLauncherIcon(paletteId: String): Boolean {
+        val validIds = listOf(
+            "eva_00_proto", "eva_00_blue", "eva_01", "eva_02", "eva_03",
+            "eva_04", "eva_05", "eva_06", "eva_07", "eva_08",
+            "eva_09", "eva_10", "eva_11", "eva_12", "eva_13"
+        )
+        val targetId = if (validIds.contains(paletteId)) paletteId else "eva_01"
+        return try {
+            val pm = applicationContext.packageManager
+            val pkg = applicationContext.packageName
+            for (id in validIds) {
+                val component = android.content.ComponentName(pkg, "$pkg.Launcher_$id")
+                val state = if (id == targetId) {
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                } else {
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                }
+                pm.setComponentEnabledSetting(component, state, PackageManager.DONT_KILL_APP)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to switch launcher icon: ${e.message}")
+            false
+        }
+    }
+
+    private fun discoverStorageRoots(): List<File> {
+        val roots = LinkedHashSet<File>()
+        val primary = android.os.Environment.getExternalStorageDirectory()
+        if (primary != null && primary.exists() && primary.isDirectory) {
+            roots.add(primary)
+        }
+        try {
+            val extDirs = ContextCompat.getExternalFilesDirs(applicationContext, null)
+            for (d in extDirs) {
+                if (d != null) {
+                    val rootPath = d.absolutePath.substringBefore("/Android/data")
+                    val rootFile = File(rootPath)
+                    if (rootFile.exists() && rootFile.isDirectory) {
+                        roots.add(rootFile)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error getting external files dirs: ${e.message}")
+        }
+        try {
+            val sm = getSystemService(android.content.Context.STORAGE_SERVICE) as? android.os.storage.StorageManager
+            sm?.storageVolumes?.forEach { vol ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    vol.directory?.let { dir ->
+                        if (dir.exists() && dir.isDirectory) {
+                            roots.add(dir)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error querying StorageManager: ${e.message}")
+        }
+        return roots.toList()
     }
 
     private fun getRequiredAudioPermissions(): Array<String> {
@@ -580,10 +688,85 @@ class MainActivity : FlutterActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    private val audioFocusListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                backgroundExecutor.execute {
+                    if (NativeAudioBridge.nativeGetPlaybackState() == 1) {
+                        pausedByAudioFocus = true
+                        NativeAudioBridge.nativePause()
+                        runOnUiThread {
+                            AudioPlaybackService.updatePlayback(this@MainActivity, isPlaying = false)
+                        }
+                    }
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS -> {
+                pausedByAudioFocus = false
+                backgroundExecutor.execute {
+                    if (NativeAudioBridge.nativeGetPlaybackState() == 1) {
+                        NativeAudioBridge.nativePause()
+                        runOnUiThread {
+                            AudioPlaybackService.updatePlayback(this@MainActivity, isPlaying = false)
+                        }
+                    }
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                if (pausedByAudioFocus) {
+                    pausedByAudioFocus = false
+                    backgroundExecutor.execute {
+                        NativeAudioBridge.nativeResume()
+                        runOnUiThread {
+                            AudioPlaybackService.updatePlayback(this@MainActivity, isPlaying = true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun requestAudioFocus() {
+        val am = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attrs = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val req = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(attrs)
+                .setAcceptsDelayedFocusGain(true)
+                .setWillPauseWhenDucked(false)
+                .setOnAudioFocusChangeListener(audioFocusListener)
+                .build()
+            audioFocusRequest = req
+            am.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(
+                audioFocusListener,
+                android.media.AudioManager.STREAM_MUSIC,
+                android.media.AudioManager.AUDIOFOCUS_GAIN
+            )
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(audioFocusListener)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        abandonAudioFocus()
         AudioPlaybackService.stopService(this)
         backgroundExecutor.shutdown()
+        ioExecutor.shutdown()
         usbBridge?.unregister()
     }
 }

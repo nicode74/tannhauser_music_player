@@ -111,6 +111,7 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final displayMs = _isDragging ? _previewPositionMs : widget.positionMs;
     final fraction = _fraction;
 
@@ -137,6 +138,7 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
                     isPlaying: widget.isPlaying,
                     isDragging: _isDragging,
                     isUsbConnected: widget.isUsbConnected,
+                    colors: colors,
                   ),
                 ),
 
@@ -153,8 +155,8 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.bg,
-                    border: Border.all(color: AppColors.borderStrong, width: 1.5),
+                    color: colors.bg,
+                    border: Border.all(color: colors.borderStrong, width: 1.5),
                   ),
                 ),
               ],
@@ -172,14 +174,14 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.evaPurpleDim.withOpacity(0.5),
+                  color: colors.evaPurpleDim.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.evaPurple, width: 0.8),
+                  border: Border.all(color: colors.evaPurple, width: 0.8),
                 ),
                 child: Text(
                   'SCRUB',
                   style: AppTypography.telemetrySmall.copyWith(
-                    color: AppColors.evaPurple,
+                    color: colors.evaPurple,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -187,14 +189,14 @@ class _DiscSeekWheelState extends State<DiscSeekWheel> {
             Text(
               _formatTime(displayMs),
               style: AppTypography.telemetryMedium.copyWith(
-                color: _isDragging ? AppColors.evaPurple : AppColors.textPrimary,
+                color: _isDragging ? colors.evaPurple : colors.textPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               ' / ${_formatTime(widget.durationMs)}',
               style: AppTypography.telemetryMedium.copyWith(
-                color: AppColors.textMuted,
+                color: colors.textMuted,
               ),
             ),
           ],
@@ -216,12 +218,14 @@ class _DiscSeekPainter extends CustomPainter {
   final bool isPlaying;
   final bool isDragging;
   final bool isUsbConnected;
+  final dynamic colors;
 
   _DiscSeekPainter({
     required this.fraction,
     required this.isPlaying,
     required this.isDragging,
     required this.isUsbConnected,
+    required this.colors,
   });
 
   @override
@@ -231,22 +235,22 @@ class _DiscSeekPainter extends CustomPainter {
 
     // 1. Base Disc Matte Fill & Border
     final basePaint = Paint()
-      ..color = AppColors.surfaceInset
+      ..color = colors.surfaceInset
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, outerRadius - 2, basePaint);
 
     final borderPaint = Paint()
-      ..color = isDragging ? AppColors.evaPurple : AppColors.borderStrong
+      ..color = isDragging ? colors.evaPurple : colors.borderStrong
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawCircle(center, outerRadius - 2, borderPaint);
 
     // 2. Radial Tick Marks (60 ticks around rim)
     final tickPaint = Paint()
-      ..color = AppColors.textMuted.withOpacity(0.4)
+      ..color = colors.textMuted.withOpacity(0.4)
       ..strokeWidth = 1.0;
     final majorTickPaint = Paint()
-      ..color = AppColors.borderStrong
+      ..color = colors.borderStrong
       ..strokeWidth = 1.5;
 
     final tickRadius = outerRadius - 6;
@@ -269,7 +273,7 @@ class _DiscSeekPainter extends CustomPainter {
 
     // 3. Concentric Machined Vinyl Micro-Grooves
     final groovePaint = Paint()
-      ..color = AppColors.border.withOpacity(0.35)
+      ..color = colors.border.withOpacity(0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
 
@@ -280,7 +284,7 @@ class _DiscSeekPainter extends CustomPainter {
     // 4. Inactive Arc Track
     final trackRadius = outerRadius - 16;
     final trackPaint = Paint()
-      ..color = AppColors.border
+      ..color = colors.border
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
     canvas.drawCircle(center, trackRadius, trackPaint);
@@ -295,14 +299,14 @@ class _DiscSeekPainter extends CustomPainter {
         ..strokeWidth = 3.5;
 
       if (isDragging) {
-        arcPaint.color = AppColors.evaPurple;
+        arcPaint.color = colors.evaPurple;
       } else {
-        arcPaint.shader = const SweepGradient(
+        arcPaint.shader = SweepGradient(
           startAngle: -math.pi / 2,
           endAngle: 3 * math.pi / 2,
-          colors: [
-            AppColors.evaPurple,
-            AppColors.acidGreen,
+          colors: <Color>[
+            colors.evaPurple,
+            colors.acidGreen,
           ],
         ).createShader(arcRect);
       }
@@ -317,8 +321,8 @@ class _DiscSeekPainter extends CustomPainter {
       );
 
       final dotColor = isDragging
-          ? AppColors.evaPurple
-          : (isPlaying ? AppColors.acidGreen : AppColors.evaPurple);
+          ? colors.evaPurple
+          : (isPlaying ? colors.acidGreen : colors.evaPurple);
 
       // Outer Glow
       final glowPaint = Paint()
